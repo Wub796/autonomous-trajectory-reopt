@@ -1,6 +1,9 @@
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
+from astropy.time import Time, TimeDelta
+from astropy.coordinates import get_body_barycentric_posvel
+import astropy.units as u
 
 class SpacecraftEnv(gym.Env):
     def __init__(self):
@@ -12,6 +15,8 @@ class SpacecraftEnv(gym.Env):
         self.Isp = 1782       # seconds
         self.efficiency = 0.551 # decimal
         self.t_max = 11040
+        self.mars_pos_table, self.mars_vel_table = self._precompute_ephemeris()
+        self.current_step = 0
 
         # Minimum and maximum values of the observation space
         self.obs_min = np.array([
@@ -69,13 +74,57 @@ class SpacecraftEnv(gym.Env):
         return obs, {}
 
     def step(self, action):
-        # Apply action to physics
-        # Calculate reward
-        # Check termination
-        # Return all five values
-        pass
+        # 1. Unpack action
+        T = action[...]
+        theta = action[...]
+        phi = action[...]
+        
+        # 2. Convert spherical to Cartesian thrust vector
+        Fx = ...
+        Fy = ...
+        Fz = ...
+        
+        # 3. Update velocity using F = ma
+        # self.state[6,7,8] are vx,vy,vz
+        
+        # 4. Update position using v = dx/dt
+        # self.state[0,1,2] are x,y,z
+        
+        # 5. Update mass
+        # m_dot = T / (g0 * Isp)
+        
+        # 6. Update time remaining
+        
+        # 7. Update relative position to Mars
+        
+        # 8. Calculate reward
+        
+        # 9. Check termination
+        
+        # 10. Return all five values
 
     def _normalize(self, value, min_val, max_val):
         # Min-max scaling formula
         ans = (value-min_val)/(max_val-min_val)
         return ans
+
+    def _precompute_ephemeris(self):
+        launch = Time('2027-02-19')
+        # Create a vectorized array of all timesteps at once
+        times = launch + np.arange(11041) * u.hour
+        
+        # Get all positions and velocities in one call
+        mars_states = get_body_barycentric_posvel('mars', times)
+        
+        # Extract values (in AU and AU/day) and convert to km and km/s
+        # .T is used to get shape (11041, 3)
+        mars_pos = mars_states[0].xyz.value.T * 149597870.7
+        mars_vel = mars_states[1].xyz.value.T * 1731.4568
+
+        return mars_pos, mars_vel
+
+import time
+start = time.time()
+method = SpacecraftEnv()
+ans = method._precompute_ephemeris()
+print(f"Precompute took {time.time()-start:.2f} seconds")
