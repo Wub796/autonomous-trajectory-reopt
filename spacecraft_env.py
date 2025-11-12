@@ -5,6 +5,8 @@ from astropy.time import Time, TimeDelta
 from astropy.coordinates import get_body_barycentric_posvel
 import astropy.units as u
 import joblib
+import pandas as pd
+import warnings
 
 class SpacecraftEnv(gym.Env):
     def __init__(self):
@@ -21,6 +23,10 @@ class SpacecraftEnv(gym.Env):
         self.t_max = 11040
         self.mars_pos_table, self.mars_vel_table = self._precompute_ephemeris()
         self.current_step = 0
+        self.mu_sun = 1.32712440018e11 # km^3 / s^2
+
+        # Phase 1 Curriculum Toggle
+        self.enable_anomalies = False
 
         # Minimum and maximum values of the observation space
         self.obs_min = np.array([
@@ -61,7 +67,9 @@ class SpacecraftEnv(gym.Env):
             dtype=np.float32
         )
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        
         self.current_step = 0
 
         self.vel = np.array([
@@ -86,6 +94,28 @@ class SpacecraftEnv(gym.Env):
         
         # Normalize using min-max scaling
         obs = self._normalize(self.state,self.obs_min,self.obs_max)
+
+       # Specific Orbital Energy Initialization
+        v_mag = np.linalg.norm(self.vel)
+        r_mag = np.linalg.norm(self.state[0:3])
+        current_energy = (v_mag**2 / 2.0) - (self.mu_sun / r_mag)
+
+        # Target Energy (Mars at step 0)
+        target_v_mag = np.linalg.norm(self.mars_vel_table[0])
+        target_r_mag = np.linalg.norm(self.mars_pos_table[0])
+        target_energy = (target_v_mag**2 / 2.0) - (self.mu_sun / target_r_mag)
+
+        # Initialize the error tracker
+        self.prev_error = abs(target_energy - current_energy)
+
+        # Heliocentric Phase Angle Initialization
+        r_sc = self.state[0:3]
+        r_mars = self.mars_pos_table[0]
+        
+        # Calculate initial angle using dot product
+        cos_theta = np.dot(r_sc, r_mars) / (np.linalg.norm(r_sc) * np.linalg.norm(r_mars))
+        cos_theta = np.clip(cos_theta, -1.0, 1.0) # Numerical stability
+        self.prev_phase_angle = np.arccos(cos_theta)
         
         return obs, {}
 
@@ -100,17 +130,29 @@ class SpacecraftEnv(gym.Env):
         Fy = T * np.sin(phi) * np.sin(theta)
         Fz = T * np.cos(phi)
         
-        # 3. Update velocity (a = F/m, v_new = v_old + a*dt)
+        # 3. Update velocity (a = F/m + g)
         dt = 3600  # seconds
         g0 = 9.80665  # m/s²
         mass = self.state[9]
+        
+        # Thruster acceleration (km/s^2)
         ax = (Fx / mass) / 1000
         ay = (Fy / mass) / 1000
         az = (Fz / mass) / 1000
 
-        self.vel[0] += ax * dt
-        self.vel[1] += ay * dt
-        self.vel[2] += az * dt
+        # Sun's gravitational acceleration (km/s^2)
+        # r vector is self.state[0:3] (distance from sun)
+        r_mag = np.linalg.norm(self.state[0:3])
+        
+        # a_g = -mu * r / |r|^3
+        gx = -self.mu_sun * self.state[0] / (r_mag**3)
+        gy = -self.mu_sun * self.state[1] / (r_mag**3)
+        gz = -self.mu_sun * self.state[2] / (r_mag**3)
+
+        # Update absolute velocity
+        self.vel[0] += (ax + gx) * dt
+        self.vel[1] += (ay + gy) * dt
+        self.vel[2] += (az + gz) * dt
 
         # 4. Update position using ABSOLUTE velocity
         self.state[0] += self.vel[0] * dt
@@ -136,19 +178,54 @@ class SpacecraftEnv(gym.Env):
         self.state[7] = self.vel[1] - current_mars_vel[1]
         self.state[8] = self.vel[2] - current_mars_vel[2]
 
-        # 8. Calculate reward
-        d = np.linalg.norm(self.state[3:6])  # distance to Mars
-        reward = 3*self._normalize(self.state[9],self.obs_min[9],self.obs_max[9])/4 + self._normalize(self.state[10],self.obs_min[10],self.obs_max[10])/4 - self._normalize(d,0,self.obs_max[3])  # your normalized formula
+        current_distance = np.linalg.norm(self.state[3:6])
 
-        # 9. Check termination
-        terminated = bool(self.state[9] <= self.obs_min[9] or self.state[10] <= self.obs_min[10] or d < 577000)
+        # Specific Orbital Energy Calculation (Agent)
+        v_mag = np.linalg.norm(self.vel)
+        r_mag = np.linalg.norm(self.state[0:3])
+        current_energy = (v_mag**2 / 2.0) - (self.mu_sun / r_mag)
 
-        telemetry = np.array([[self.state[11]]])
-        anomaly_flag = self.anomaly_detector.predict(telemetry)
-        if anomaly_flag == -1:
-            self.state[11] = 1514.7
+        # Specific Orbital Energy Calculation (Target Mars)
+        target_v_mag = np.linalg.norm(self.mars_vel_table[self.current_step])
+        target_r_mag = np.linalg.norm(self.mars_pos_table[self.current_step])
+        target_energy = (target_v_mag**2 / 2.0) - (self.mu_sun / target_r_mag)
 
-        # 10. Return all five values
+        # Calculate Energy Error Delta
+        current_energy_error = abs(target_energy - current_energy)
+        energy_error_delta = self.prev_error - current_energy_error
+        
+        # Heliocentric Phase Angle Calculation
+        r_sc = self.state[0:3]
+        r_mars = self.mars_pos_table[self.current_step]
+        cos_theta = np.dot(r_sc, r_mars) / (r_mag * target_r_mag)
+        cos_theta = np.clip(cos_theta, -1.0, 1.0)
+        current_phase_angle = np.arccos(cos_theta)
+        
+        # Calculate Phase Angle Delta
+        phase_delta = self.prev_phase_angle - current_phase_angle
+
+        # Multi-Objective Reward Blending
+        # Scaling parameters (500.0, 1000.0) balance the gradient magnitude of energy vs. angle
+        thrust_penalty = 0.1 * (T / self.Tmax)
+        reward = (energy_error_delta * 500.0) + (phase_delta * 1000.0) - thrust_penalty
+        
+        # Update trackers for subsequent step
+        self.prev_error = current_energy_error
+        self.prev_phase_angle = current_phase_angle
+
+        terminated = bool(self.state[9] <= self.obs_min[9] or self.state[10] <= self.obs_min[10] or current_distance < 577000)
+
+        # Curriculum-controlled Anomaly Injection
+        if self.enable_anomalies:
+            solar_temp = np.random.normal(45, 0.5)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore") # Suppresses scikit-learn missing feature name warning
+                anomaly_flag = self.anomaly_detector.predict([[self.state[11], solar_temp]])
+            if anomaly_flag == -1:
+                self.state[11] = 1514.7
+        else:
+            self.state[11] = 1782
+
         obs = self._normalize(self.state, self.obs_min, self.obs_max)
         return obs, reward, terminated, False, {}
 
