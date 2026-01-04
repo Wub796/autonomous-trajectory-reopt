@@ -53,22 +53,15 @@ eval_callback = EvalCallback(
 curriculum_callback = CurriculumCallback(reward_threshold=500.0)
 
 # 2. PPO Model Definition with Stability Fixes
-model = PPO(
-    "MlpPolicy", 
-    train_env, 
-    n_steps=2760,      
-    batch_size=460,    
-    ent_coef=0.01,       
-    learning_rate=lambda progress_remaining: progress_remaining * 3e-4, # Linear Decay
-    clip_range=0.2,
-    clip_range_vf=0.2, # Value Function Clipping
-    verbose=1, 
-    tensorboard_log="./ppo_mars_logs/"
-)
+model = PPO.load("ppo_spacecraft_phase4", env=train_env)
 
 # 3. Execution
 print("Ignition... Phase 4 Training started.")
-model.learn(total_timesteps=5520000, callback=[eval_callback, curriculum_callback])
+model.learn(
+    total_timesteps=4791360, 
+    callback=[eval_callback, curriculum_callback],
+    reset_num_timesteps=False
+)
 
 # 4. State Preservation (Model + Normalization Stats)
 model.save("ppo_spacecraft_phase4")
