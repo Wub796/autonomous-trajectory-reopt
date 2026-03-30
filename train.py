@@ -15,6 +15,7 @@ class CurriculumCallback(BaseCallback):
             mean_reward = sum(ep["r"] for ep in self.model.ep_info_buffer) / len(self.model.ep_info_buffer)
             if mean_reward >= self.reward_threshold:
                 self.training_env.set_attr('enable_anomalies', True)
+                print(f"[CURRICULUM] Anomaly phase activated at timestep {self.num_timesteps} | ep_rew_mean: {mean_reward:.1f}")
         return True
 
 class SaveVecNormalizeCallback(BaseCallback):
