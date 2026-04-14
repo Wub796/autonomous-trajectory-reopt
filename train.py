@@ -3,6 +3,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback, BaseCallback, CheckpointCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+from collections import deque
 from spacecraft_env import SpacecraftEnv
 
 class CurriculumCallback(BaseCallback):
@@ -11,8 +12,9 @@ class CurriculumCallback(BaseCallback):
         self.reward_threshold = reward_threshold
 
     def _on_step(self) -> bool:
-        if len(self.model.ep_info_buffer) > 0:
-            mean_reward = sum(ep["r"] for ep in self.model.ep_info_buffer) / len(self.model.ep_info_buffer)
+        buf = self.model.ep_info_buffer
+        if isinstance(buf, deque) and len(buf) > 0:
+            mean_reward = sum(ep["r"] for ep in buf) / len(buf)
             if mean_reward >= self.reward_threshold:
                 self.training_env.set_attr('enable_anomalies', True)
                 print(f"[CURRICULUM] Anomaly phase activated at timestep {self.num_timesteps} | ep_rew_mean: {mean_reward:.1f}")
@@ -35,7 +37,8 @@ class SaveVecNormalizeCallback(BaseCallback):
     def _on_step(self) -> bool:
         if self.n_calls % self.save_freq == 0:
             path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.pkl")
-            self.training_env.save(path)
+            if isinstance(self.training_env, VecNormalize):
+                self.training_env.save(path)
         return True
 
 # 1. Environment Wrapper Setup

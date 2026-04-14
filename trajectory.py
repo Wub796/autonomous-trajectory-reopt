@@ -19,6 +19,7 @@ model = PPO.load("ppo_spacecraft_phase5_final")
 
 # 3. Trajectory Generation Loop
 obs = eval_env.reset()
+assert isinstance(obs, np.ndarray), "Expected ndarray observation from VecEnv.reset()"
 terminated = False
 telemetry = []
 
