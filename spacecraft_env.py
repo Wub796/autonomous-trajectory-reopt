@@ -11,6 +11,7 @@ class SpacecraftEnv(gym.Env):
         self.Tmax = 0.289      # N
         self.Isp = 1782       # seconds
         self.efficiency = 0.551 # decimal
+        self.t_max = 11040
 
         # Observation space - Box because...
         self.observation_space = spaces.Box(
