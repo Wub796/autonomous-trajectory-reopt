@@ -10,7 +10,7 @@ class SpacecraftEnv(gym.Env):
         # Source: Hargus & Fife, AFRL/NASA Glenn, DTIC 2000
         self.Tmax = 0.289      # N
         self.Isp = 1782       # seconds
-        self.efficiency = 55.1 # decimal
+        self.efficiency = 0.551 # decimal
 
         # Observation space - Box because...
         self.observation_space = spaces.Box(
