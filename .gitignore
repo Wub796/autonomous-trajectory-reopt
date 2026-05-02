@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+.venv/
+
+# Artifacts — large binaries and generated outputs
+artifacts/
+
+# Logs & TensorBoard
+logs/
+ppo_mars_logs/
+
+# macOS
+.DS_Store
