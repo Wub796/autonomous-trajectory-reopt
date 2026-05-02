@@ -16,7 +16,7 @@ class SpacecraftEnv(gym.Env):
         # Minimum and maximum values of the observation space
         self.obs_min = np.array([
             -249000000,-249000000,-249000000,
-            0,0,0,
+            -401000000,-401000000,-401000000,
             -45,-45,-45,
             1648,
             0,
