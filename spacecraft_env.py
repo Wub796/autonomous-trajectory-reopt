@@ -52,6 +52,7 @@ class SpacecraftEnv(gym.Env):
         )
 
     def reset(self):
+        self.current_step = 0
         # Initialize raw state values
         self.state = np.array([
             # x, y, z position relative to Sun (km)          
@@ -75,33 +76,56 @@ class SpacecraftEnv(gym.Env):
 
     def step(self, action):
         # 1. Unpack action
-        T = action[...]
-        theta = action[...]
-        phi = action[...]
+        T = action[0]
+        theta = action[1]
+        phi = action[2]
         
         # 2. Convert spherical to Cartesian thrust vector
-        Fx = ...
-        Fy = ...
-        Fz = ...
+        Fx = T * np.sin(phi) * np.cos(theta)
+        Fy = T * np.sin(phi) * np.sin(theta)
+        Fz = T * np.cos(phi)
         
-        # 3. Update velocity using F = ma
-        # self.state[6,7,8] are vx,vy,vz
+        # 3. Update velocity (a = F/m, v_new = v_old + a*dt)
+        dt = 3600  # seconds
+        g0 = 9.80665  # m/s²
+        mass = self.state[9]
+        ax = (Fx / mass) / 1000
+        ay = (Fy / mass) / 1000
+        az = (Fz / mass) / 1000
         
-        # 4. Update position using v = dx/dt
-        # self.state[0,1,2] are x,y,z
-        
+        self.state[6] += ax * dt
+        self.state[7] += ay * dt
+        self.state[8] += az * dt
+
+        # 4. Update position (x_new = x_old + v*dt)
+        self.state[0] += self.state[6] * dt
+        self.state[1] += self.state[7] * dt
+        self.state[2] += self.state[8] * dt
+
         # 5. Update mass
-        # m_dot = T / (g0 * Isp)
-        
+        m_dot = T / (self.state[11] * g0)
+        self.state[9] -= m_dot * dt
+
         # 6. Update time remaining
+        self.current_step += 1
+        self.state[10] -= 1
         
         # 7. Update relative position to Mars
-        
+        current_mars_pos = self.mars_pos_table[self.current_step]
+        self.state[3] = current_mars_pos[0] - self.state[0]
+        self.state[4] = current_mars_pos[1] - self.state[1]
+        self.state[5] = current_mars_pos[2] - self.state[2]
+
         # 8. Calculate reward
-        
+        d = np.linalg.norm(self.state[3:6])  # distance to Mars
+        reward = 3*self._normalize(self.state[9],self.obs_min[9],self.obs_max[9])/4 + self._normalize(self.state[10],self.obs_min[10],self.obs_max[10])/4 - self._normalize(d,0,self.obs_max[3])  # your normalized formula
+
         # 9. Check termination
-        
+        terminated = bool(self.state[9] <= self.obs_min[9] or self.state[10] <= self.obs_min[10] or d < 577000)
+
         # 10. Return all five values
+        obs = self._normalize(self.state, self.obs_min, self.obs_max)
+        return obs, reward, terminated, False, {}
 
     def _normalize(self, value, min_val, max_val):
         # Min-max scaling formula
@@ -122,9 +146,3 @@ class SpacecraftEnv(gym.Env):
         mars_vel = mars_states[1].xyz.value.T * 1731.4568
 
         return mars_pos, mars_vel
-
-import time
-start = time.time()
-method = SpacecraftEnv()
-ans = method._precompute_ephemeris()
-print(f"Precompute took {time.time()-start:.2f} seconds")
