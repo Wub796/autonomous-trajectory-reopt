@@ -1,13 +1,13 @@
 import pandas as pd
 from sklearn.ensemble import IsolationForest
+import joblib
 
 # 1. LOAD THE DATA (YOUR TURN)
 # You used mission_dataframe.to_csv() to save the file earlier.
 # What is the pandas command to READ a csv file named 'simulated_telemetry.csv' 
 # and save it as a variable named 'flight_data'?
 
-# [WRITE YOUR LOGIC HERE]
-flight_data = pd.read_csv("simulated_telemetry.csv")
+flight_data = pd.read_csv("demo/simulated_telemetry.csv")
 
 # 2. Isolate the Features (The sensors the AI will monitor)
 # We don't want the AI looking at the 'Hour' column, only the physical sensors.
@@ -35,3 +35,6 @@ print(f"Total anomalies detected: {len(failures_detected)}")
 catastrophic_failures = failures_detected[failures_detected['Hour'] > 1495]
 print("\nAnomalies detected in the degradation zone:")
 print(catastrophic_failures['Hour'].head(10))
+
+joblib.dump(ai_model, 'isolation_forest.pkl')
+print("Successfully saved the ai model")

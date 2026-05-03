@@ -4,10 +4,14 @@ from gymnasium import spaces
 from astropy.time import Time, TimeDelta
 from astropy.coordinates import get_body_barycentric_posvel
 import astropy.units as u
+import joblib
 
 class SpacecraftEnv(gym.Env):
     def __init__(self):
         super().__init__()
+        
+        # Loading Isolation Forest model
+        self.anomaly_detector = joblib.load('isolation_forest.pkl')
 
         # Thruster parameters - SPT-140, Test Point 4
         # Source: Hargus & Fife, AFRL/NASA Glenn, DTIC 2000
@@ -36,6 +40,12 @@ class SpacecraftEnv(gym.Env):
             1782
         ])
 
+        # Absolute spacecraft velocity relative to Sun (km/s)
+        self.vel = np.array([
+            # Earth's velocity at launch - from your astropy calculation
+            19.16158263, -20.64057575, -8.94723395
+        ])
+
         # Observation space - Box because the values are continuous streams of numbers and require the use of n closed intervals
         self.observation_space = spaces.Box(
             low=0,
@@ -53,6 +63,11 @@ class SpacecraftEnv(gym.Env):
 
     def reset(self):
         self.current_step = 0
+
+        self.vel = np.array([
+            19.16158263, -20.64057575, -8.94723395
+        ])
+
         # Initialize raw state values
         self.state = np.array([
             # x, y, z position relative to Sun (km)          
@@ -92,15 +107,15 @@ class SpacecraftEnv(gym.Env):
         ax = (Fx / mass) / 1000
         ay = (Fy / mass) / 1000
         az = (Fz / mass) / 1000
-        
-        self.state[6] += ax * dt
-        self.state[7] += ay * dt
-        self.state[8] += az * dt
 
-        # 4. Update position (x_new = x_old + v*dt)
-        self.state[0] += self.state[6] * dt
-        self.state[1] += self.state[7] * dt
-        self.state[2] += self.state[8] * dt
+        self.vel[0] += ax * dt
+        self.vel[1] += ay * dt
+        self.vel[2] += az * dt
+
+        # 4. Update position using ABSOLUTE velocity
+        self.state[0] += self.vel[0] * dt
+        self.state[1] += self.vel[1] * dt
+        self.state[2] += self.vel[2] * dt
 
         # 5. Update mass
         m_dot = T / (self.state[11] * g0)
@@ -116,12 +131,22 @@ class SpacecraftEnv(gym.Env):
         self.state[4] = current_mars_pos[1] - self.state[1]
         self.state[5] = current_mars_pos[2] - self.state[2]
 
+        current_mars_vel = self.mars_vel_table[self.current_step]
+        self.state[6] = self.vel[0] - current_mars_vel[0]
+        self.state[7] = self.vel[1] - current_mars_vel[1]
+        self.state[8] = self.vel[2] - current_mars_vel[2]
+
         # 8. Calculate reward
         d = np.linalg.norm(self.state[3:6])  # distance to Mars
         reward = 3*self._normalize(self.state[9],self.obs_min[9],self.obs_max[9])/4 + self._normalize(self.state[10],self.obs_min[10],self.obs_max[10])/4 - self._normalize(d,0,self.obs_max[3])  # your normalized formula
 
         # 9. Check termination
         terminated = bool(self.state[9] <= self.obs_min[9] or self.state[10] <= self.obs_min[10] or d < 577000)
+
+        telemetry = np.array([[self.state[11]]])
+        anomaly_flag = self.anomaly_detector.predict(telemetry)
+        if anomaly_flag == -1:
+            self.state[11] = 1514.7
 
         # 10. Return all five values
         obs = self._normalize(self.state, self.obs_min, self.obs_max)
