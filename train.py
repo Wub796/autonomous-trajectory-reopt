@@ -1,5 +1,6 @@
+import os
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
+from stable_baselines3.common.callbacks import EvalCallback, BaseCallback, CheckpointCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from spacecraft_env import SpacecraftEnv
@@ -13,15 +14,33 @@ class CurriculumCallback(BaseCallback):
         if len(self.model.ep_info_buffer) > 0:
             mean_reward = sum(ep["r"] for ep in self.model.ep_info_buffer) / len(self.model.ep_info_buffer)
             if mean_reward >= self.reward_threshold:
-                # Trigger anomaly phase across all vectorized environments
                 self.training_env.set_attr('enable_anomalies', True)
+        return True
+
+class SaveVecNormalizeCallback(BaseCallback):
+    """
+    Saves the VecNormalize statistics at the exact same frequency as the model CheckpointCallback.
+    """
+    def __init__(self, save_freq: int, save_path: str, name_prefix: str = "vec_normalize", verbose: int = 0):
+        super().__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        self.name_prefix = name_prefix
+
+    def _init_callback(self) -> None:
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.save_freq == 0:
+            path = os.path.join(self.save_path, f"{self.name_prefix}_{self.num_timesteps}_steps.pkl")
+            self.training_env.save(path)
         return True
 
 # 1. Environment Wrapper Setup
 def make_env():
     return Monitor(SpacecraftEnv())
 
-# Training Environment (Normalizes Observations AND Rewards)
 train_env = DummyVecEnv([make_env])
 train_env = VecNormalize(
     train_env, 
@@ -31,14 +50,29 @@ train_env = VecNormalize(
     clip_reward=10.0
 )
 
-# Evaluation Environment (Normalizes Observations, but NEVER Rewards. Does not update stats.)
 eval_env = DummyVecEnv([make_env])
 eval_env = VecNormalize(
     eval_env, 
     norm_obs=True, 
     norm_reward=False, 
-    training=False, # CRITICAL FIX: Freezes running statistics during evaluation
+    training=False, 
     clip_obs=10.0
+)
+
+# 2. Callback Instantiation
+checkpoint_freq = 11040 * 25 # Save every 10 episodes
+save_path = "./logs/checkpoints/"
+
+checkpoint_callback = CheckpointCallback(
+    save_freq=checkpoint_freq,
+    save_path=save_path,
+    name_prefix="ppo_spacecraft"
+)
+
+vec_normalize_callback = SaveVecNormalizeCallback(
+    save_freq=checkpoint_freq,
+    save_path=save_path,
+    name_prefix="vec_normalize"
 )
 
 eval_callback = EvalCallback(
@@ -52,18 +86,33 @@ eval_callback = EvalCallback(
 
 curriculum_callback = CurriculumCallback(reward_threshold=500.0)
 
-# 2. PPO Model Definition with Stability Fixes
-model = PPO.load("ppo_spacecraft_phase4", env=train_env)
+# Bundle callbacks
+callback_list = CallbackList([
+    eval_callback, 
+    curriculum_callback, 
+    checkpoint_callback, 
+    vec_normalize_callback
+])
 
-# 3. Execution
-print("Ignition... Phase 4 Training started.")
-model.learn(
-    total_timesteps=4791360, 
-    callback=[eval_callback, curriculum_callback],
-    reset_num_timesteps=False
+# 3. PPO Model Definition
+model = PPO(
+    "MlpPolicy", 
+    train_env, 
+    n_steps=2760,      
+    batch_size=460,    
+    ent_coef=0.01,       
+    learning_rate=lambda progress_remaining: progress_remaining * 3e-4, 
+    clip_range=0.2,
+    clip_range_vf=0.2, 
+    verbose=1, 
+    tensorboard_log="./ppo_mars_logs/"
 )
 
-# 4. State Preservation (Model + Normalization Stats)
-model.save("ppo_spacecraft_phase4")
-train_env.save("vec_normalize_phase4.pkl")
+# 4. Execution
+print("Ignition... Phase 5 Stabilized Training started.")
+model.learn(total_timesteps=5520000, callback=callback_list)
+
+# 5. Final State Preservation
+model.save("ppo_spacecraft_phase5_final")
+train_env.save("vec_normalize_phase5_final.pkl")
 print("Mission complete. Model and environment statistics archived.")
