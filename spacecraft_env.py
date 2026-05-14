@@ -21,7 +21,7 @@ class SpacecraftEnv(gym.Env):
         self.Isp = 1782       # seconds
         self.efficiency = 0.551 # decimal
         self.t_max = 11040
-        self.mars_pos_table, self.mars_vel_table = self._precompute_ephemeris()
+        self.mars_pos_table, self.mars_vel_table, self.mars_pos_norms, self.mars_vel_norms = self._precompute_ephemeris()
         self.current_step = 0
         self.mu_sun = 1.32712440018e11 # km^3 / s^2
 
@@ -101,8 +101,8 @@ class SpacecraftEnv(gym.Env):
         current_energy = (v_mag**2 / 2.0) - (self.mu_sun / r_mag)
 
         # Target Energy (Mars at step 0)
-        target_v_mag = np.linalg.norm(self.mars_vel_table[0])
-        target_r_mag = np.linalg.norm(self.mars_pos_table[0])
+        target_v_mag = self.mars_vel_norms[0]
+        target_r_mag = self.mars_pos_norms[0]
         target_energy = (target_v_mag**2 / 2.0) - (self.mu_sun / target_r_mag)
 
         # Initialize the error tracker
@@ -113,7 +113,7 @@ class SpacecraftEnv(gym.Env):
         r_mars = self.mars_pos_table[0]
         
         # Calculate initial angle using dot product
-        cos_theta = np.dot(r_sc, r_mars) / (np.linalg.norm(r_sc) * np.linalg.norm(r_mars))
+        cos_theta = np.dot(r_sc, r_mars) / (r_mag * target_r_mag)
         cos_theta = np.clip(cos_theta, -1.0, 1.0) # Numerical stability
         self.prev_phase_angle = np.arccos(cos_theta)
         
@@ -186,8 +186,8 @@ class SpacecraftEnv(gym.Env):
         current_energy = (v_mag**2 / 2.0) - (self.mu_sun / r_mag)
 
         # Specific Orbital Energy Calculation (Target Mars)
-        target_v_mag = np.linalg.norm(self.mars_vel_table[self.current_step])
-        target_r_mag = np.linalg.norm(self.mars_pos_table[self.current_step])
+        target_v_mag = self.mars_vel_norms[self.current_step]
+        target_r_mag = self.mars_pos_norms[self.current_step]
         target_energy = (target_v_mag**2 / 2.0) - (self.mu_sun / target_r_mag)
 
         # Calculate Energy Error Delta
@@ -247,4 +247,8 @@ class SpacecraftEnv(gym.Env):
         mars_pos = mars_states[0].xyz.value.T * 149597870.7
         mars_vel = mars_states[1].xyz.value.T * 1731.4568
 
-        return mars_pos, mars_vel
+        # Precompute norms for performance optimization
+        mars_pos_norms = np.linalg.norm(mars_pos, axis=1)
+        mars_vel_norms = np.linalg.norm(mars_vel, axis=1)
+
+        return mars_pos, mars_vel, mars_pos_norms, mars_vel_norms
