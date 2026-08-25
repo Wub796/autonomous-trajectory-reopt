@@ -1,0 +1,2 @@
+assumed_active_power_w,assumed_idle_power_w,energy_per_inference_uJ,mission_energy_j,mission_baseline_idle_j,n_gnc_steps,runtime,mean_latency_us
+3.4,2.7,16.17963508,0.17862317128320002,29808.000000000004,11040,ONNX Runtime,4.7587162
