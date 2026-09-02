@@ -1,0 +1,6 @@
+component,layer_type,params,mean_us,share_of_actor_pct,n_trials,hardware
+policy trunk layer 0,Linear,832,2.1667289999999997,23.29977974814164,2000,Darwin (arm64)
+policy trunk layer 1,Tanh,0,0.9760415,10.495798955497337,2000,Darwin (arm64)
+policy trunk layer 2,Linear,4160,3.1108125,33.451920423719756,2000,Darwin (arm64)
+policy trunk layer 3,Tanh,0,0.9477709999999999,10.191793967623985,2000,Darwin (arm64)
+action head (mean),Linear,195,2.098,22.56070690501727,2000,Darwin (arm64)

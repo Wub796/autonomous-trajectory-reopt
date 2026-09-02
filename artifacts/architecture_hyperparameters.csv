@@ -1,0 +1,3 @@
+architecture,policy,net_arch,activation_fn,lstm_hidden_size,n_lstm_layers,learning_rate,n_steps,batch_size,ent_coef,clip_range
+Feed-Forward MLP (PPO Baseline),MlpPolicy,"pi=[256, 256], vf=[256, 256]",Tanh,n/a,n/a,3e-4 (linear decay),2760,460,0.01,0.2
+Recurrent LSTM (RecurrentPPO / POMDP),MlpLstmPolicy,"LSTM(128, 1 layer) + MLP [256, 256]",Tanh,128,1,3e-4 (linear decay),2760,460,0.01,0.2

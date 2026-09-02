@@ -6,8 +6,10 @@ __pycache__/
 # Virtual environment
 .venv/
 
-# Artifacts — large binaries and generated outputs
-artifacts/
+# Scratch & Temporary Test Artifacts
+scratch/
+.freebuff/
+artifacts/test_deploy/
 
 # Logs & TensorBoard
 logs/
@@ -15,3 +17,4 @@ ppo_mars_logs/
 
 # macOS
 .DS_Store
+

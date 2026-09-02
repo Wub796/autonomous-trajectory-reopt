@@ -54,7 +54,7 @@ class SpacecraftEnv(gym.Env):
         # Absolute spacecraft velocity relative to Sun (km/s)
         self.vel = np.array([
             # Earth's velocity at launch - from astropy calculation
-            19.16158263, -20.64057575, -8.94723395
+            -15.4827348, -23.69526119, -10.27023734
         ])
 
         # Observation space - Box because the values are continuous streams of
@@ -79,7 +79,7 @@ class SpacecraftEnv(gym.Env):
         self.current_step = 0
 
         self.vel = np.array([
-            19.16158263, -20.64057575, -8.94723395
+            -15.4827348, -23.69526119, -10.27023734
         ])
 
         # Initialize raw state values
@@ -214,6 +214,9 @@ class SpacecraftEnv(gym.Env):
         # Scaling parameters (500.0, 1000.0) balance the gradient magnitude of energy vs. angle
         thrust_penalty = 0.1 * (T / self.Tmax)
         reward = (energy_error_delta * 500.0) + (phase_delta * 1000.0) - thrust_penalty
+
+        if current_distance < 577000:
+            reward += 100000.0
 
         # Update trackers for subsequent step
         self.prev_error = current_energy_error

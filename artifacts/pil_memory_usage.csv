@@ -1,0 +1,4 @@
+stage,rss_mb,peak_rss_mb
+after policy load,396.541952,399.228928
+after engine init,492.929024,492.929024
+after benchmarks,546.308096,546.308096

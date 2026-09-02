@@ -5,6 +5,7 @@ Run from the project root:
     python scripts/train.py
 """
 import os
+import numpy as np
 from collections import deque
 
 from stable_baselines3 import PPO
@@ -32,8 +33,12 @@ class CurriculumCallback(BaseCallback):
     def __init__(self, reward_threshold: float, verbose: int = 0):
         super().__init__(verbose)
         self.reward_threshold = reward_threshold
+        self.activated = False
 
     def _on_step(self) -> bool:
+        if self.activated:
+            return True
+            
         buf = self.model.ep_info_buffer
         if isinstance(buf, deque) and len(buf) > 0:
             mean_reward = sum(ep["r"] for ep in buf) / len(buf)
@@ -43,6 +48,7 @@ class CurriculumCallback(BaseCallback):
                     f"[CURRICULUM] Anomaly phase activated at timestep "
                     f"{self.num_timesteps} | ep_rew_mean: {mean_reward:.1f}"
                 )
+                self.activated = True
         return True
 
 
@@ -73,6 +79,46 @@ class SaveVecNormalizeCallback(BaseCallback):
         return True
 
 
+class StopOnInterceptCallback(BaseCallback):
+    """
+    Evaluates the current model every eval_freq steps in the raw environment.
+    Stops training early if the spacecraft successfully intercepts Mars (distance < 577,000 km).
+    """
+
+    def __init__(self, eval_freq: int, verbose: int = 0):
+        super().__init__(verbose)
+        self.eval_freq = eval_freq
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.eval_freq == 0:
+            from src.env.spacecraft_env import SpacecraftEnv
+            test_env = SpacecraftEnv()
+            obs, _ = test_env.reset()
+            done = False
+            step = 0
+            while not done and step < 11040:
+                if isinstance(self.training_env, VecNormalize):
+                    norm_obs = self.training_env.normalize_obs(obs)
+                else:
+                    norm_obs = obs
+                action, _ = self.model.predict(norm_obs, deterministic=True)
+                obs, reward, done, truncated, info = test_env.step(action)
+                step += 1
+                
+            final_dist = np.linalg.norm(test_env.state[3:6])
+            print(f"[EVALUATION] Step {self.num_timesteps} | Final distance to Mars: {final_dist:,.2f} km")
+            
+            if final_dist < 577000:
+                print(f"🎯 SUCCESS! Target intercept achieved at step {self.num_timesteps} | Dist: {final_dist:,.2f} km < 577,000 km.")
+                os.makedirs(_ARTIFACTS_DIR, exist_ok=True)
+                self.model.save(os.path.join(_ARTIFACTS_DIR, "ppo_spacecraft_phase5_final"))
+                if isinstance(self.training_env, VecNormalize):
+                    self.training_env.save(os.path.join(_ARTIFACTS_DIR, "vec_normalize_phase5_final.pkl"))
+                print("[EVALUATION] Saved successful model and normalization statistics.")
+                return False  # Stops training!
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Environment Setup
 # ---------------------------------------------------------------------------
@@ -85,9 +131,8 @@ train_env = DummyVecEnv([make_env])
 train_env = VecNormalize(
     train_env,
     norm_obs=True,
-    norm_reward=True,
+    norm_reward=False,
     clip_obs=10.0,
-    clip_reward=10.0,
 )
 
 eval_env = DummyVecEnv([make_env])
@@ -129,11 +174,14 @@ eval_callback = EvalCallback(
 
 curriculum_callback = CurriculumCallback(reward_threshold=500.0)
 
+stop_on_intercept_callback = StopOnInterceptCallback(eval_freq=11040 * 2)
+
 callback_list = CallbackList([
     eval_callback,
     curriculum_callback,
     checkpoint_callback,
     vec_normalize_callback,
+    stop_on_intercept_callback,
 ])
 
 # ---------------------------------------------------------------------------

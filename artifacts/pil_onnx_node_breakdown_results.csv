@@ -1,0 +1,4 @@
+onnx_node,n_invocations,total_us,mean_us,share_of_graph_pct
+fused node_linear_kernel_time,2000,2099.0,1.0495,33.79488005152149
+fused node_linear_1_kernel_time,2000,2056.0,1.028,33.102559974239256
+node_linear_2_kernel_time,2000,2056.0,1.028,33.102559974239256
