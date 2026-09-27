@@ -1,27 +1,29 @@
-# Autonomous Trajectory Re-optimization & Robust Deep GNC
+# Optimization of an Onboard Autonomous Flight Director Using Anomaly Detection and Reinforcement Learning Models
+### High-School STEM & AP Calculus AB / AP Statistics / Machine Learning Edition
 
-Reinforcement learning framework for autonomous interplanetary low-thrust trajectory design, robust closed-loop guidance, and flight hardware validation.
+This repository contains an autonomous guidance and anomaly-recovery framework for interplanetary low-thrust spacecraft (Earth-to-Mars transfer using an SPT-140 Hall-effect thruster).
+
+**Research Question:**
+> *How can an autonomous flight director dynamically detect progressive thruster degradation and recalculate a continuous Earth–Mars trajectory within the limits of flight-grade computers?*
+
+**Research Gap (Synthesized Across 32 Sources, #1–#32):**
+> Anomaly detection studies (#1, #20, #26, #31) spot abnormal telemetry without steering the spacecraft, while reinforcement learning guidance studies (#3, #4, #19, #21) steer Earth–Mars paths without a detector for progressive Hall thruster wear (#17, #32). This project bridges both domains on flight-grade hardware.
+
+All mathematics and algorithms are formulated using **AP Calculus AB** (rates of change, derivatives, secant slopes, tangent-line Euler integration, logarithmic wear), **AP Statistics** (least-squares regression, standard error of the mean, Z-score detection, controlled & factorial experimental design), and **introductory Machine Learning** (Collective Isolation Forests and finite-difference policy gradients with proximal clipping).
 
 ---
 
-## Key Research Capabilities
+## Key Experimental Results
 
-1. **Uncertainty & Disturbance Modeling (Zavoli & Federici, 2021)**:
-   - Additive process noise on heliocentric orbital dynamics ($\sigma_r, \sigma_v$).
-   - Navigation sensor noise (DSN & optical navigation state estimation errors).
-   - Thruster execution errors ($\pm 2.5\%$ magnitude dispersion, $\pm 0.5^\circ$ pointing jitter).
-   - Stochastic thruster outages / safe-mode downtime events.
-2. **Neural Network Architecture Comparison (Capra, Brandonisio, & Lavagna, 2022)**:
-   - Feed-Forward MLP (PPO Baseline) vs. Recurrent LSTM (`RecurrentPPO`) in partially observable Markov Decision Processes (POMDP).
-   - Temporal memory filtering of navigation sensor noise and recovery after missed thrust events.
-3. **Processor-in-the-Loop (PIL) Validation (Capra, Brandonisio, & Lavagna, 2025)**:
-   - ONNX and TorchScript flight binary export.
-   - Single-core embedded CPU latency profiling (<10 μs mean latency, >99.999% real-time margin).
-   - Closed-loop PIL flight simulation with embedded inference engines.
-4. **Extended Monte Carlo Robustness & Sensitivity Analysis (Capra et al., 2022)**:
-   - High-fidelity $N=100-1000$ dispersed Monte Carlo trajectory simulations.
-   - Parametric sensitivity sweeps across 5 disturbance dimensions.
-   - 3D/2D heliocentric dispersion cones, histogram distributions, and tornado charts.
+| Experiment | Metric | Result | Physical & Literature Interpretation |
+| :--- | :--- | :--- | :--- |
+| **Exp 1: Degradation Fit** | Goodness-of-fit ($R^2$) | **0.9966** | Logarithmic model $T(h) = P_0 - k \ln(1 + h/\tau)$ matches SPT-140 wear tests (#17, #32). |
+| **Exp 2: Collective Detection** | $F_1$ Score (Window $w=24$) | **0.990 (IF)** / **0.959 (Z)** | 24h rolling features + Isolation Forest (#20, #26, #31) jumps from $F_1=0.543$ ($w=1$) to **0.990** (98% recall, 0 false alarms). |
+| **Exp 3: AI Pilot Training** | Adaptive Miss Distance | **1.11M km** (20% cap) | Compact 243-parameter policy trained with clipped updates (#19, #27) adapts to thrust loss. |
+| **Exp 4A: Controlled Gap (#28)** | Miss Distance Reduction | **55.8% Error Cut** | Onboard IF + Pilot cuts median miss from **5.87M km** (pre-planned) to **2.60M km**. |
+| **Exp 4B: Factorial (#29)** | Controller $\times$ Wear ($10\text{–}25\%$) | **2.45M $\to$ 4.13M km saved** | Error prevented by onboard autonomy grows monotonically as thruster degradation worsens. |
+| **Exp 5: Monte Carlo ($N=100$)** | Multi-Source Disturbances | **5.19M ± 1.81M km** | Robust against launch errors, pointing jitter, sensor noise, and engine outages (#3, #12). |
+| **Exp 6: Flight Computer** | Decision Latency / RAM | **1.94 μs** / **1.90 KB** | $>99.99999\%$ real-time margin on low-power spacecraft processors (#6, #22, #26). |
 
 ---
 
@@ -29,133 +31,52 @@ Reinforcement learning framework for autonomous interplanetary low-thrust trajec
 
 ```
 research/
-├── src/
-│   ├── env/
-│   │   ├── spacecraft_env.py          # Deterministic Gymnasium physics environment
-│   │   ├── robust_spacecraft_env.py   # Stochastic environment with process/sensor/actuation noise
-│   │   └── uncertainty.py             # Disturbance modeling & Zavoli-Federici configurations
-│   ├── models/
-│   │   └── architectures.py           # Feed-Forward MLP, Recurrent LSTM (PPO) & loaders
-│   ├── deployment/
-│   │   ├── exporter.py                # ONNX and TorchScript export utilities
-│   │   └── pil_runner.py              # Processor-in-the-Loop latency benchmark & runner
-│   ├── analysis/
-│   │   ├── monte_carlo.py             # Multi-trajectory Monte Carlo ensemble engine
-│   │   ├── sensitivity.py             # Parametric perturbation sweeps
-│   │   └── plotting.py                # Publication-grade astrodynamics visualizations
-│   └── utils/
-│       └── ephemeris.py               # Astropy planetary state-vector helper
-├── scripts/
-│   ├── train.py                       # Baseline PPO training entrypoint
-│   ├── trajectory.py                  # Optimal trajectory exporter
-│   ├── compare_architectures.py       # Architecture benchmark (MLP vs. LSTM under POMDP)
-│   ├── pil_benchmark.py               # PIL validation, layer breakdown, memory/power, repeatability
-│   ├── robustness_analysis.py         # MC robustness, scenario comparison & sensitivity analysis
-│   ├── anomaly_detection_analysis.py  # Isolation Forest metrics, ROC, threshold & mission profile
-│   ├── training_analysis.py           # Training curves & Run 1/2/3 comparison (+ live success-rate)
-│   └── thruster_degradation_analysis.py  # Log degradation model validation & sensitivity
+├── mission/                           # Core self-contained physics and AI modules
+│   ├── physics.py                     # 3D gravity, Euler tangent-line steps, Mars orbit (#8)
+│   ├── thruster.py                    # SPT-140 thruster (#32), log wear (#17), fault generator (#15)
+│   ├── detector.py                    # Point IF (w=1), Z-score (w=24), & Collective IF (w=24) (#20, #26, #31)
+│   ├── pilot.py                       # 243-parameter NumPy neural network guidance policy (#5, #18, #22)
+│   ├── simulate.py                    # Batched mission flight simulator & multi-reward fitness (#4, #10, #16)
+│   └── trainer.py                     # Finite-difference policy gradients w/ proximal clipping (#19, #27, #30)
+├── experiments/                       # Automated research benchmark scripts
+│   ├── 01_fit_degradation.py          # Exp 1: Fits logarithmic wear model to SPT-140 lab data
+│   ├── 02_anomaly_detection.py        # Exp 2: Benchmarks w=1 vs w=24 collective anomaly detectors
+│   ├── 03_train_pilot.py              # Exp 3: Trains neural pilot policy with clipped updates
+│   ├── 04_gap_experiment.py           # Exp 4: Controlled comparison (#28) & 3x4 Factorial design (#29)
+│   ├── 05_monte_carlo.py              # Exp 5: 100-run dispersed Monte Carlo robustness (#3, #12)
+│   └── 06_onboard_timing.py           # Exp 6: Microsecond flight computer latency benchmark (#6, #26)
+├── paper/                             # Research publication, math primer, & synthesis matrix
+│   ├── paper.md                       # Full scientific paper citing all 32 sources (#1-#32)
+│   ├── math_primer.md                 # Step-by-step derivations from AP Calculus AB & AP Stats
+│   └── sources_and_synthesis_matrix.md# Annotated bibliography & 4-theme synthesis matrix (#1-#32)
 ├── tests/
-│   └── test_framework.py              # Comprehensive unit and integration test suite
-├── artifacts/                         # Generated models, reports, plots, and CSV telemetry
-│   ├── figures/                       # Trajectory dispersion, histogram & tornado figures
-│   ├── deployment/                    # ONNX & TorchScript flight binaries
-│   ├── architecture_comparison_report.md
-│   ├── pil_benchmark_report.md
-│   └── robustness_report.md
-└── ppo_mars_logs/                     # TensorBoard event files
+│   └── test_mission.py                # 14 comprehensive unit tests (<0.1s execution)
+├── artifacts/                         # Generated data tables and figures
+│   ├── figures/                       # High-resolution plots (PNG)
+│   └── *.csv, *.npz, *.npy            # Telemetry tables, factorial results, weights, and plans
+└── legacy/                            # Original graduate-level codebase preserved intact
 ```
 
 ---
 
-## Setup
+## Quick Start
 
+### 1. Run the Unit Tests
 ```bash
-uv venv --clear --python 3.11 .venv
-source .venv/bin/activate
-uv pip install -p .venv "stable-baselines3[extra]" "sb3-contrib" gymnasium astropy scikit-learn pandas numpy matplotlib onnx onnxruntime onnxscript scipy
+.venv/bin/python -m unittest tests/test_mission.py
 ```
 
----
-
-## Running Research Workflows
-
-> **All commands should be executed from the project root with `PYTHONPATH=.`**.
-
-### 1. Neural Network Architecture Benchmark (Capra et al. 2022)
-Compare Feed-Forward MLP vs. Recurrent LSTM under partial observability and noise, and export the
-Section 5.5 data products (training dynamics curves, stability metrics, hyperparameters, host inference timing):
+### 2. Run Any Experiment
 ```bash
-PYTHONPATH=. .venv/bin/python scripts/compare_architectures.py --timesteps 50000 --eval-episodes 10 --uncertainty zavoli
-# Re-run the same command on a Raspberry Pi 4 to populate the embedded inference row
-```
-Outputs: `artifacts/architecture_comparison_results.csv`, `artifacts/architecture_training_curves.csv`,
-`artifacts/training_curves_<arch>.csv`, `artifacts/architecture_hyperparameters.csv`,
-`artifacts/figures/architecture_training_curves.png`, `artifacts/architecture_comparison_report.md`.
-
-### 2. Processor-in-the-Loop (PIL) Flight Validation (Capra et al. 2025)
-Export ONNX/TorchScript models and profile single-core embedded latency, with Section 5.6 data products
-(per-layer breakdown, ONNX/TorchScript op profiles, memory, RPi 4 power estimate, repeatability):
-```bash
-PYTHONPATH=. .venv/bin/python scripts/pil_benchmark.py --trials 5000 --repeat-runs 3
-```
-Outputs: `artifacts/pil_benchmark_results.csv`, `artifacts/pil_layer_breakdown_results.csv`,
-`artifacts/pil_onnx_node_breakdown_results.csv`, `artifacts/pil_torchscript_op_breakdown_results.csv`,
-`artifacts/pil_memory_usage.csv`, `artifacts/pil_power_estimate.csv`, `artifacts/pil_repeatability_results.csv`,
-`artifacts/pil_benchmark_report.md`.
-
-### 3. Monte Carlo Robustness & Sensitivity Analysis (Capra et al. 2022)
-Run $N$-run dispersed trajectory simulations, sensitivity sweeps, per-category scenario comparison
-(Section 5.4: reward/fuel std, failure-mode distribution, time-to-convergence) and nominal-reference
-deviation metrics (Section 5.7):
-```bash
-PYTHONPATH=. .venv/bin/python scripts/robustness_analysis.py --episodes 100 --sensitivity-episodes 10 --scenario-episodes 20 --deviation-runs 25
-```
-Outputs: `artifacts/monte_carlo_results.csv`, `artifacts/mc_scenario_comparison.csv`,
-`artifacts/mc_scenario_summary.csv`, `artifacts/nominal_vs_dispersed_deviation.csv`,
-plus `figures/scenario_comparison.png`, `figures/failure_mode_breakdown.png`,
-`figures/sensitivity_curves.png`, `figures/nominal_deviation.png`, `artifacts/robustness_report.md`.
-
-### 4. Anomaly Detection Metrics (Section 3.3 / Section 4)
-Formal TP/FP/TN/FN, precision/recall/F1, ROC/AUC, threshold analysis, comparison against OC-SVM /
-LOF / Elliptic-Envelope, and a full-mission detection profile (false positives & detection delay):
-```bash
-PYTHONPATH=. .venv/bin/python scripts/anomaly_detection_analysis.py
-PYTHONPATH=. .venv/bin/python scripts/anomaly_detection_analysis.py --onset-hour 1200 --n-nominal 10000 --n-anomalous 3000
-```
-Outputs: `artifacts/anomaly_detection/anomaly_metrics.csv`, `anomaly_roc_data.csv`,
-`anomaly_threshold_analysis.csv`, `anomaly_mission_detection.csv`, figures, `anomaly_detection_report.md`.
-
-### 5. Training Dynamics & Run Comparison (Section 4)
-Extract training curves (reward, value loss, explained variance, entropy, KL, std) and the Run 1 / Run 2 /
-Run 3 phase comparison from the existing TensorBoard logs; optionally run fresh short PPO runs with
-periodic success-rate (Mars capture) evaluation:
-```bash
-PYTHONPATH=. .venv/bin/python scripts/training_analysis.py
-PYTHONPATH=. .venv/bin/python scripts/training_analysis.py --phase-runs PPO_1 PPO_2 PPO_3
-PYTHONPATH=. .venv/bin/python scripts/training_analysis.py --live --live-timesteps 44160 --live-seeds 1 2 3
-```
-Outputs: `artifacts/training_analysis/training_curves.csv`, `training_runs_summary.csv`,
-`training_success_rate_*.csv` (live), figures, `training_analysis_report.md`.
-
-### 6. Thruster Degradation Model Validation (Section 2.3)
-Fit and validate the logarithmic degradation model $P(h) = P_0 - k\,\ln(1 + h/\tau)$ against
-literature-calibrated SPT-140 wear-test data (Kamhawi et al. 2014), with parameter sensitivity:
-```bash
-PYTHONPATH=. .venv/bin/python scripts/thruster_degradation_analysis.py
-PYTHONPATH=. .venv/bin/python scripts/thruster_degradation_analysis.py --data my_measured.csv --mission-hours 11040
-```
-Outputs: `artifacts/thruster_degradation/degradation_empirical_data.csv`, `degradation_fit_results.csv`,
-`degradation_residuals.csv`, `degradation_sensitivity.csv`, figures, `thruster_degradation_report.md`.
-
-### 7. Run Unit & Regression Tests
-```bash
-PYTHONPATH=. .venv/bin/python -m unittest tests/test_framework.py
+.venv/bin/python experiments/01_fit_degradation.py
+.venv/bin/python experiments/02_anomaly_detection.py
+.venv/bin/python experiments/03_train_pilot.py
+.venv/bin/python experiments/04_gap_experiment.py
+.venv/bin/python experiments/05_monte_carlo.py
+.venv/bin/python experiments/06_onboard_timing.py
 ```
 
----
-
-## References
-
-- **Zavoli, A., & Federici, L. (2021)**. *Reinforcement Learning for Robust Trajectory Design of Interplanetary Missions*. Journal of Guidance, Control, and Dynamics, 44(8), 1440–1453.
-- **Capra, L., Brandonisio, A., & Lavagna, M. (2022)**. *Network architecture and action space analysis for deep reinforcement learning towards spacecraft autonomous guidance*. Advances in Space Research.
-- **Capra, L., Brandonisio, A., & Lavagna, M. (2025)**. *Reinforced Model Predictive Guidance and Control for Spacecraft Proximity Operations*. Aerospace, 12(1).
+### 3. Read the Paper, Math Primer & Synthesis Matrix
+- **Scientific Paper (with all 32 sources):** [paper/paper.md](file:///Users/bnjw/Documents/Projects/research/paper/paper.md)
+- **Calculus & Statistics Primer:** [paper/math_primer.md](file:///Users/bnjw/Documents/Projects/research/paper/math_primer.md)
+- **32-Source Synthesis Matrix & Annotations:** [paper/sources_and_synthesis_matrix.md](file:///Users/bnjw/Documents/Projects/research/paper/sources_and_synthesis_matrix.md)

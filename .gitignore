@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
 
 # Virtual environment
@@ -17,4 +18,4 @@ ppo_mars_logs/
 
 # macOS
 .DS_Store
-
+**/.DS_Store
