@@ -83,28 +83,32 @@ To answer the research question with mathematical transparency and reproducibili
 3. **Monte Carlo Disturbance & Flight-Processor Profiling:** A 100-run dispersed Monte Carlo ensemble under the five-dimensional Zavoli and Federici (2021) uncertainty model, paired with a $10,000$-trial single-core CPU latency and memory benchmark (Capra et al., 2025).
 
 ### 3.2 Astrodynamics and Propulsion Model
-The spacecraft is modeled in three-dimensional heliocentric Cartesian coordinates $\mathbf{r} = \langle x, y, z \rangle$ and velocity $\mathbf{v} = \langle v_x, v_y, v_z \rangle$ over a 460-day ($11,040\text{ h}$) transfer window with integration timestep $\Delta t = 12\text{ h}$ ($43,200\text{ s}$). Solar gravitational acceleration follows Newton's inverse-square law in 3D:
+The spacecraft is modeled in three-dimensional heliocentric Cartesian coordinates $\mathbf{r} = \langle x, y, z \rangle$ and velocity $\mathbf{v} = \langle v_x, v_y, v_z \rangle$ over a 460-day ($11,040\text{ h}$) transfer window with integration timestep $\Delta t = 12\text{ h}$ ($43,200\text{ s}$). By Newton's Law of Universal Gravitation ($F_g = G M_\odot m / r^2$) and Newton's Second Law ($a = F/m$), solar gravitational acceleration points radially inward toward the Sun at the origin:
 
-$$\mathbf{a}_g = -\frac{\mu_\odot}{\|\mathbf{r}\|^3} \mathbf{r}, \quad \mu_\odot = 1.3271244 \times 10^{11}\text{ km}^3/\text{s}^2$$
+$$\mathbf{a}_g = -\frac{\mu_\odot}{\|\mathbf{r}\|^3} \mathbf{r}, \quad \mu_\odot = G M_\odot = 1.3271244 \times 10^{11}\text{ km}^3/\text{s}^2$$
 
-Using the tangent-line linear approximation from AP Calculus AB, velocity and position are stepped forward via semi-implicit (symplectic) Euler integration, which preserves orbital energy over multi-month spirals:
+Because velocity is the derivative of position ($\mathbf{v} = d\mathbf{r}/dt$) and acceleration is the derivative of velocity ($\mathbf{a} = d\mathbf{v}/dt$), the trajectory is stepped forward in time using the **AP Calculus AB tangent-line linear approximation** ($f(t + \Delta t) \approx f(t) + f'(t)\Delta t$). Specifically, we use **semi-implicit Euler integration**, which updates velocity first and then uses that updated velocity to advance position, preventing artificial orbital energy drift over multi-month spirals:
 
 $$\mathbf{v}(t + \Delta t) = \mathbf{v}(t) + \big( \mathbf{a}_g(t) + \mathbf{a}_T(t) \big) \Delta t, \quad \mathbf{r}(t + \Delta t) = \mathbf{r}(t) + \mathbf{v}(t + \Delta t) \Delta t$$
 
-The spacecraft launches from Earth's circular heliocentric orbit ($R_E = 1.0\text{ AU} = 1.496 \times 10^8\text{ km}$, orbital speed $29.78\text{ km/s}$) with a hyperbolic launch injection boost of $v_\infty = 2.0\text{ km/s}$ along Earth's velocity vector. Mars moves along a 3D inclined orbit ($R_M = 1.5237\text{ AU}$, orbital period $686.98\text{ days}$, orbital inclination $i = 1.85^\circ$, ascending node $\Omega = 49.6^\circ$), requiring both in-plane orbital raising and out-of-plane inclination steering (Astropy Collaboration, 2022; Capra et al., 2022).
+The spacecraft launches from Earth's circular heliocentric orbit ($R_E = 1.0\text{ AU} = 1.496 \times 10^8\text{ km}$, orbital speed $v_E = \sqrt{\mu_\odot / R_E} = 29.78\text{ km/s}$) with a launch injection boost of $v_\infty = 2.0\text{ km/s}$ along Earth's velocity vector. Mars moves along a 3D tilted circular orbit ($R_M = 1.5237\text{ AU}$, orbital period $686.98\text{ days}$, orbital inclination $i = 1.85^\circ$, ascending node $\Omega = 49.6^\circ$), requiring both in-plane orbital raising and out-of-plane inclination steering (Astropy Collaboration, 2022; Capra et al., 2022).
 
-Propulsion parameters match the SPT-140 Hall thruster at Test Point 4 ($4.5\text{ kW}$): nominal maximum thrust $T_0 = 0.289\text{ N}$, nominal specific impulse $I_{sp0} = 1,782\text{ s}$, initial wet mass $m_{\text{wet}} = 2,747\text{ kg}$, and dry mass limit $m_{\text{dry}} = 1,648\text{ kg}$ ($1,099\text{ kg}$ usable xenon propellant) (Kamhawi et al., 2014; Snyder et al., 2018). For throttle command $\delta \in [0, 1]$, true thruster health fraction $h_{\text{true}}(t) \in (0, 1]$, and unit 3D thrust direction $\mathbf{d}$, thrust acceleration and mass depletion rate are:
+Propulsion parameters match the SPT-140 Hall thruster at Test Point 4 ($4.5\text{ kW}$): nominal maximum thrust $T_0 = 0.289\text{ N}$, nominal specific impulse $I_{sp0} = 1,782\text{ s}$, initial wet mass $m_{\text{wet}} = 2,747\text{ kg}$, and dry mass limit $m_{\text{dry}} = 1,648\text{ kg}$ ($1,099\text{ kg}$ usable xenon propellant) (Kamhawi et al., 2014; Snyder et al., 2018). For throttle command $\delta \in [0, 1]$, true thruster health fraction $h_{\text{true}}(t) \in (0, 1]$, and unit 3D thrust direction $\mathbf{d}$, thrust acceleration and mass depletion rate follow from $F = ma$ and momentum conservation:
 
 $$\mathbf{a}_T = \frac{\delta \, T_0 \, h_{\text{true}}(t)}{1000 \cdot m(t)} \mathbf{d}\ \ [\text{km/s}^2], \quad \frac{dm}{dt} = -\frac{\delta \, T_0}{I_{sp0} \, g_0}\ \ [\text{kg/s}]$$
 
-where $g_0 = 9.80665\text{ m/s}^2$.
+where $g_0 = 9.80665\text{ m/s}^2$ and the factor of $1000$ converts $\text{m/s}^2$ to $\text{km/s}^2$.
 
 ### 3.3 Thruster Degradation and Synthetic Telemetry Generation
-Normal channel-wall aging over operating hours $h$ is modeled by a logarithmic decay function (Conversano et al., 2019; Kamhawi et al., 2014):
+Normal channel-wall aging over operating hours $h$ is modeled by a logarithmic decay function whose instantaneous wear rate (first derivative via the Chain Rule) slows down over time (Conversano et al., 2019; Kamhawi et al., 2014):
 
 $$P(h) = P_0 - k \ln\left(1 + \frac{h}{\tau}\right), \quad \frac{dP}{dh} = -\frac{k}{\tau + h}$$
 
-To fit $P_0, k,$ and $\tau$ to the 10-point empirical SPT-140 wear dataset (Kamhawi et al., 2014) using AP Calculus AB optimization, substituting $x_i = \ln(1 + h_i/\tau)$ for a candidate $\tau$ transforms the model into a linear regression $y_i = P_0 - k x_i$. Setting the partial derivatives of the Sum of Squared Errors, $\text{SSE} = \sum (y_i - P_0 + k x_i)^2$, to zero yields exact closed-form normal equations for $P_0$ and $k$, which are evaluated across a 600-point geometric grid of $\tau \in [50, 50,000]\text{ h}$ to locate the global minimum SSE.
+To fit $P_0, k,$ and $\tau$ to the 10-point empirical SPT-140 wear dataset (Kamhawi et al., 2014) using AP Statistics and AP Calculus AB optimization, substituting $x_i = \ln(1 + h_i/\tau)$ for a candidate $\tau$ transforms the curve into a linear regression $y_i = a + b x_i$ (where $a = P_0$ and $b = -k$). Because any least-squares regression line passes through the sample means $(\bar{x}, \bar{y})$ so that $a = \bar{y} - b\bar{x}$, the Sum of Squared Errors becomes a single-variable quadratic function of the slope $b$:
+
+$$\text{SSE}(b) = \sum_{i=1}^N \big((y_i - \bar{y}) - b(x_i - \bar{x})\big)^2$$
+
+Setting the first derivative $d(\text{SSE})/db = 0$ yields the standard AP Statistics least-squares slope $b = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sum (x_i - \bar{x})^2}$, which is evaluated across a 600-point grid of $\tau \in [50, 50,000]\text{ h}$ to locate the global minimum SSE.
 
 Following Ballentine et al. (2026), hourly synthetic telemetry streams ($11,040\text{ h}$ per mission) are generated by combining normal logarithmic aging with progressive in-flight degradation faults starting at hour $h_{\text{onset}} \in [720, 3,600]\text{ h}$ (Days 30–150), with fractional thrust loss severity $s \in [0.10, 0.25]$ developing linearly over ramp duration $h_{\text{ramp}} \in [24, 120]\text{ h}$:
 
@@ -127,29 +131,29 @@ Three unsupervised detectors, each trained exclusively on the healthy baseline p
 Once an alarm fires at $t_{\text{alarm}}$, the detector updates the spacecraft's believed thruster health to the rolling measured average, $\hat{h}_{\text{believed}}(t) = \bar{T}_{\text{meas},24}(t) / T_0$, and feeds this belief directly into the neural pilot.
 
 ### 3.5 Neural Pilot Architecture and Variables
-The closed-loop pilot policy is a feed-forward neural network mapping an 11-dimensional normalized observation vector $\mathbf{o} \in \mathbb{R}^{11}$ to 3 continuous control actions through a single hidden layer of 16 $\tanh$ neurons:
+The closed-loop pilot policy is a two-layer feed-forward neural network mapping $11$ normalized state observations $\mathbf{o} = \langle o_1, \dots, o_{11} \rangle$ to $3$ continuous control actions through a single hidden layer of $16$ neurons using the hyperbolic tangent activation $\tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}} \in (-1, 1)$:
 
 $$\mathbf{h} = \tanh(\mathbf{W}_1 \mathbf{o} + \mathbf{b}_1), \quad \mathbf{u} = \mathbf{W}_2 \mathbf{h} + \mathbf{b}_2$$
 
-The 11 inputs comprise: Mars relative position in the spacecraft's local radial/along-track/normal ($\hat{\mathbf{r}}, \hat{\mathbf{t}}, \hat{\mathbf{n}}$) orbital frame scaled by $0.5\text{ AU}$ (3 inputs); Mars relative velocity in the local frame scaled by $10\text{ km/s}$ (3 inputs); heliocentric radius deviation $2(r/\text{AU} - 1.25)$ (1 input); radial velocity $v_r / (5\text{ km/s})$ (1 input); remaining propellant fraction $\frac{m - m_{\text{dry}}}{m_{\text{wet}} - m_{\text{dry}}}$ (1 input); remaining mission time fraction $1 - t/t_{\text{max}}$ (1 input); and scaled believed thruster health $5(\hat{h}_{\text{believed}} - 1.0)$ (1 input). Following Capra et al. (2022), the 3 outputs parameterize continuous 3D spherical thrust commands:
+The 11 inputs comprise: Mars relative position in the spacecraft's local radial/along-track/normal ($\hat{\mathbf{r}}, \hat{\mathbf{t}}, \hat{\mathbf{n}}$) orbital frame scaled by $0.5\text{ AU}$ (3 inputs); Mars relative velocity in the local frame scaled by $10\text{ km/s}$ (3 inputs); heliocentric radius deviation $2(r/\text{AU} - 1.25)$ (1 input); radial velocity $v_r / (5\text{ km/s})$ (1 input); remaining propellant fraction $\frac{m - m_{\text{dry}}}{m_{\text{wet}} - m_{\text{dry}}}$ (1 input); remaining mission time fraction $1 - t/t_{\text{max}}$ (1 input); and scaled believed thruster health $5(\hat{h}_{\text{believed}} - 1.0)$ (1 input). Following Capra et al. (2022), the 3 outputs define continuous 3D spherical thrust commands:
 - **Throttle:** $\delta = \text{sigmoid}(u_0) = \frac{1}{1 + e^{-u_0}} \in (0, 1)$
 - **In-Plane Pitch Angle:** $\alpha = \frac{\pi}{2}\tanh(u_1) \in (-\frac{\pi}{2}, +\frac{\pi}{2})$
 - **Out-of-Plane Yaw Angle:** $\beta = \frac{\pi}{2}\tanh(u_2) \in (-\frac{\pi}{2}, +\frac{\pi}{2})$
 
 The total parameter count is $(11 \times 16 + 16) + (16 \times 3 + 3) = 243$ weights ($1,944\text{ bytes}$ in 64-bit floating point).
 
-### 3.6 Curriculum Training and Clipped Policy Optimization
+### 3.6 Curriculum Training and Clipped Finite-Difference Policy Optimization
 Following Miller and Bosanac (2022) and Gaudet et al. (2020a), each simulated trajectory is scored by a multi-objective fitness function $J(\boldsymbol{\theta})$ that rewards logarithmic proximity to Mars's sphere of influence ($R_{\text{SOI}} = 577,000\text{ km}$) while awarding a fuel-conservation bonus upon capture:
 
 $$J(\boldsymbol{\theta}) = -\log_{10}\left(\frac{\max(d_{\min},\, 150,000\text{ km})}{577,000\text{ km}}\right) + 0.3 \left(\frac{m_{\text{final}} - m_{\text{dry}}}{m_{\text{wet}} - m_{\text{dry}}}\right) \mathbb{I}(d_{\min} < 577,000\text{ km})$$
 
-To train the 243 parameters using AP Calculus AB principles, we employ Natural Evolution Strategies (Salimans et al., 2017) with PPO-inspired proximal update clipping (Schulman et al., 2017) and baseline advantage centering (Schulman et al., 2016; Mnih et al., 2016). In each generation, $P = 64$ random perturbation vectors $\boldsymbol{\epsilon}_i \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ are sampled and evaluated as mirrored pairs $\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}_i$ and $\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon}_i$. Raw scores are transformed into zero-centered rank advantages $A_i \in [-0.5, +0.5]$, and the gradient is estimated via the **symmetric difference quotient**:
+To train the 243 parameters using AP Calculus AB principles without backpropagation through 920 orbital steps, we combine finite-difference evolutionary policy gradients (Salimans et al., 2017) with PPO-inspired proximal update clipping (Schulman et al., 2017) and baseline advantage centering (Schulman et al., 2016; Mnih et al., 2016). In each generation, $P = 64$ random perturbation directions $\boldsymbol{\epsilon}_i \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ are sampled and evaluated as mirrored pairs $\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}_i$ and $\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon}_i$. Raw scores are converted into zero-centered rank advantages $A_i \in [-0.5, +0.5]$ (so above-average trajectories receive positive weight and below-average trajectories receive negative weight), and the slope along each direction is estimated via the **AP Calculus AB symmetric difference quotient** ($f'(x) \approx \frac{f(x+h) - f(x-h)}{2h}$):
 
-$$\hat{\nabla}_{\boldsymbol{\theta}} J = \frac{1}{2 P \sigma} \sum_{i=1}^P \big[ A(\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}_i) - A(\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon}_i) \big] \boldsymbol{\epsilon}_i$$
+$$\hat{\mathbf{g}} = \frac{1}{2 P \sigma} \sum_{i=1}^P \big[ A(\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}_i) - A(\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon}_i) \big] \boldsymbol{\epsilon}_i$$
 
-To prevent destructive parameter jumps (Schulman et al., 2017), each update step is bounded by a **proximal safety cap** $\epsilon_{\text{clip}} = 0.05$:
+Because a linear derivative approximation is only accurate near the current weights, we prevent destructive parameter jumps (Schulman et al., 2017) by bounding each update step with a **proximal safety cap** $\epsilon_{\text{clip}} = 0.05$:
 
-$$\boldsymbol{\theta}_{k+1} = \boldsymbol{\theta}_k + \text{clip}\big(\eta \hat{\nabla}_{\boldsymbol{\theta}} J,\; -\epsilon_{\text{clip}},\; +\epsilon_{\text{clip}}\big)$$
+$$\boldsymbol{\theta}_{k+1} = \boldsymbol{\theta}_k + \text{clip}\big(\eta \hat{\mathbf{g}},\; -\epsilon_{\text{clip}},\; +\epsilon_{\text{clip}}\big)$$
 
 Curriculum training proceeds in two stages (Capra et al., 2022):
 - **Stage 1 (Generations 0–400, Nominal Flight):** Trained on healthy thrusters ($\sigma = 0.035, \eta = 0.025, 128\text{ missions/gen} = 51,200\text{ missions}$) to establish the baseline Earth-to-Mars trajectory plan.

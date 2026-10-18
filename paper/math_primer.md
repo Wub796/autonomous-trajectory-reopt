@@ -26,7 +26,7 @@ Applying this to velocity and position yields **Euler's Method**:
 $$\mathbf{v}(t + \Delta t) \approx \mathbf{v}(t) + \mathbf{a}(t) \cdot \Delta t$$
 $$\mathbf{r}(t + \Delta t) \approx \mathbf{r}(t) + \mathbf{v}(t + \Delta t) \cdot \Delta t$$
 
-In orbital mechanics, using the updated velocity $\mathbf{v}(t + \Delta t)$ to compute the new position is known as **semi-implicit (symplectic) Euler integration**. This prevents artificial energy buildup and ensures orbital stability over multi-month simulations.
+In orbital mechanics, using the updated velocity $\mathbf{v}(t + \Delta t)$ to compute the new position is known as **semi-implicit Euler integration**. This prevents artificial energy buildup and ensures orbital stability over multi-month simulations.
 
 ---
 
@@ -120,22 +120,22 @@ The error function is:
 
 $$S(a, b) = \sum_{i=1}^N (y_i - a - b x_i)^2$$
 
-### 5.2 Finding the Minimum via Derivatives
-To find the minimum, set the partial derivatives with respect to $a$ and $b$ to zero:
+### 5.2 Finding the Minimum via Single-Variable Derivatives (AP Calculus AB & AP Statistics)
+In AP Statistics, every least-squares regression line passes through the point of averages $(\bar{x}, \bar{y})$, which gives the intercept directly in terms of the slope $b$:
 
-$$\frac{\partial S}{\partial a} = -2 \sum_{i=1}^N (y_i - a - b x_i) = 0 \implies \sum y_i - N a - b \sum x_i = 0$$
+$$\bar{y} = a + b \bar{x} \implies a = \bar{y} - b \bar{x}$$
 
-Dividing by $N$ gives:
+Substituting $a = \bar{y} - b \bar{x}$ into the error function turns $S$ into a **single-variable quadratic function of the slope $b$**:
 
-$$\bar{y} - a - b \bar{x} = 0 \implies a = \bar{y} - b \bar{x}$$
+$$S(b) = \sum_{i=1}^N \big( (y_i - \bar{y}) - b(x_i - \bar{x}) \big)^2$$
 
-Next, setting $\frac{\partial S}{\partial b} = 0$:
+Now we use the **First Derivative Test** and the **Chain Rule** from AP Calculus AB to find the slope $b$ that minimizes $S(b)$:
 
-$$\frac{\partial S}{\partial b} = -2 \sum_{i=1}^N x_i (y_i - a - b x_i) = 0$$
+$$\frac{dS}{db} = -2 \sum_{i=1}^N (x_i - \bar{x}) \big( (y_i - \bar{y}) - b(x_i - \bar{x}) \big) = 0$$
 
-Substituting $a = \bar{y} - b \bar{x}$:
+Solving for $b$ gives the exact AP Statistics least-squares slope formula:
 
-$$\sum x_i \big( (y_i - \bar{y}) - b(x_i - \bar{x}) \big) = 0 \implies b = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sum (x_i - \bar{x})^2}$$
+$$b = \frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sum (x_i - \bar{x})^2}$$
 
 We evaluate this analytic solution across a 1D grid of candidate $\tau$ values to find the global minimum $\tau^*$.
 
@@ -204,21 +204,25 @@ Control actions are bounded using standard functions:
 All weights and biases form a parameter vector $\boldsymbol{\theta} \in \mathbb{R}^{243}$.
 
 ### 7.2 The Symmetric Difference Quotient (AP Calculus AB)
-In calculus, the derivative of a multivariable objective $J(\boldsymbol{\theta})$ along direction $\boldsymbol{\epsilon}$ is approximated by the symmetric difference quotient:
+In AP Calculus AB, the derivative $f'(x)$ of a function can be approximated by testing a small step $+h$ and $-h$ on either side of $x$ (**symmetric difference quotient**):
 
-$$\nabla_{\boldsymbol{\epsilon}} J(\boldsymbol{\theta}) \approx \frac{J(\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}) - J(\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon})}{2\sigma}$$
+$$f'(x) \approx \frac{f(x + h) - f(x - h)}{2h}$$
 
-### 7.3 Advantage Baseline Subtraction (#27, #30) & Natural Evolution Strategies
-To reduce trial-and-error noise over long 460-day trajectories (#27 Schulman et al., 2016; #30 Mnih et al., 2016), raw scores are converted into baseline-centered rank advantages $A_i \in [-0.5, +0.5]$ with mean $0$:
+Applying this exact idea to the neural network weights $\boldsymbol{\theta}$ along a random perturbation direction $\boldsymbol{\epsilon}$ with step size $\sigma$ gives the rate of change of the mission score $J$:
 
-$$\hat{\nabla}_{\boldsymbol{\theta}} J \approx \frac{1}{2 P \sigma} \sum_{i=1}^P \Big[ A(\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}_i) - A(\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon}_i) \Big] \boldsymbol{\epsilon}_i$$
+$$\frac{\Delta J}{\Delta \sigma} \approx \frac{J(\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}) - J(\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon})}{2\sigma}$$
+
+### 7.3 Advantage Baseline Subtraction (#27, #30) & Finite-Difference Policy Gradient
+To reduce trial-and-error noise over long 460-day trajectories (#27 Schulman et al., 2016; #30 Mnih et al., 2016; Salimans et al., 2017), raw scores are converted into baseline-centered rank advantages $A_i \in [-0.5, +0.5]$ with mean $0$:
+
+$$\hat{\mathbf{g}} = \frac{1}{2 P \sigma} \sum_{i=1}^P \Big[ A(\boldsymbol{\theta} + \sigma \boldsymbol{\epsilon}_i) - A(\boldsymbol{\theta} - \sigma \boldsymbol{\epsilon}_i) \Big] \boldsymbol{\epsilon}_i$$
 
 ### 7.4 Proximal Safety Cap / Clipped Policy Update (#19 Schulman et al., 2017)
 In AP Calculus AB, a tangent line only approximates a curve accurately *near* the point of tangency. Taking too large a parameter step can push the neural network into unstable steering behavior. Following Proximal Policy Optimization (#19), we apply a piecewise clipping function to cap the maximum change per update:
 
 $$\text{clip}(\Delta \theta, -\epsilon_{\text{clip}}, +\epsilon_{\text{clip}}) = \begin{cases} -\epsilon_{\text{clip}}, & \Delta \theta < -\epsilon_{\text{clip}} \\ \Delta \theta, & -\epsilon_{\text{clip}} \le \Delta \theta \le +\epsilon_{\text{clip}} \\ +\epsilon_{\text{clip}}, & \Delta \theta > +\epsilon_{\text{clip}} \end{cases}$$
 
-$$\boldsymbol{\theta}_{k+1} = \boldsymbol{\theta}_k + \text{clip}\big(\alpha \hat{\nabla}_{\boldsymbol{\theta}} J,\; -\epsilon_{\text{clip}},\; +\epsilon_{\text{clip}}\big)$$
+$$\boldsymbol{\theta}_{k+1} = \boldsymbol{\theta}_k + \text{clip}\big(\eta \hat{\mathbf{g}},\; -\epsilon_{\text{clip}},\; +\epsilon_{\text{clip}}\big)$$
 
 ---
 

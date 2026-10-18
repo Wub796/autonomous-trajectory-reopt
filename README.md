@@ -51,10 +51,9 @@ research/
 │   └── sources_and_synthesis_matrix.md# Annotated bibliography & 4-theme synthesis matrix (#1-#32)
 ├── tests/
 │   └── test_mission.py                # 14 comprehensive unit tests (<0.1s execution)
-├── artifacts/                         # Generated data tables and figures
-│   ├── figures/                       # High-resolution plots (PNG)
-│   └── *.csv, *.npz, *.npy            # Telemetry tables, factorial results, weights, and plans
-└── legacy/                            # Original graduate-level codebase preserved intact
+└── artifacts/                         # Generated data tables and figures
+    ├── figures/                       # High-resolution plots (PNG)
+    └── *.csv, *.npz, *.npy            # Telemetry tables, factorial results, weights, and plans
 ```
 
 ---
