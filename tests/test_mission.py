@@ -1,5 +1,5 @@
 """
-Unit tests for high-school level mission codebase.
+Unit tests for the mission codebase.
 Verifies physics, thruster models, detector logic, neural pilot, and simulation engine.
 """
 import unittest
@@ -8,7 +8,7 @@ import numpy as np
 from mission import physics as P
 from mission import thruster as T
 from mission import detector as D
-from mission import pilot as AI
+from mission import pilot as policy
 from mission import simulate as S
 from mission import trainer as TR
 
@@ -103,7 +103,7 @@ class TestDetector(unittest.TestCase):
         self.assertFalse(np.isinf(alarm_hr[0]))
         self.assertGreaterEqual(alarm_hr[0], 500.0)
         self.assertLess(alarm_hr[0], 560.0)
-        # Believed health should drop post-alarm
+        # Health estimate should drop post-alarm
         self.assertLess(believed[0, -1], 0.85)
 
     def test_zscore_detector_nominal_no_false_alarm(self):
@@ -127,25 +127,25 @@ class TestDetector(unittest.TestCase):
 class TestPilotAndSimulate(unittest.TestCase):
     def test_neural_pilot_forward(self):
         rng = np.random.default_rng(0)
-        theta = AI.init_params(rng)
-        self.assertEqual(theta.shape, (AI.N_PARAMS,))
+        theta = policy.init_params(rng)
+        self.assertEqual(theta.shape, (policy.N_PARAMS,))
 
-        obs = np.ones((2, AI.N_IN))
-        thr, alpha, beta = AI.act(np.tile(theta, (2, 1)), obs)
+        obs = np.ones((2, policy.N_IN))
+        thr, alpha, beta = policy.act(np.tile(theta, (2, 1)), obs)
         self.assertEqual(thr.shape, (2,))
         self.assertEqual(alpha.shape, (2,))
         self.assertEqual(beta.shape, (2,))
         self.assertTrue(np.all((thr >= 0.0) & (thr <= 1.0)))
 
         # Compare with act_single
-        thr_s, a_s, b_s = AI.act_single(theta, obs[0])
+        thr_s, a_s, b_s = policy.act_single(theta, obs[0])
         self.assertAlmostEqual(thr[0], thr_s, places=6)
         self.assertAlmostEqual(alpha[0], a_s, places=6)
         self.assertAlmostEqual(beta[0], b_s, places=6)
 
     def test_simulate_fly(self):
         rng = np.random.default_rng(0)
-        theta = AI.init_params(rng)
+        theta = policy.init_params(rng)
         scen = S.Scenario.healthy(2)
         res = S.fly(theta, scen, dt_hours=24)
         self.assertEqual(res["min_dist_km"].shape, (2,))

@@ -3,7 +3,7 @@ simulate.py: fly whole missions (many at once) and score them.
 
 A mission:
   * starts at Earth with the launch boost,
-  * every dt hours, either follows the pre-made PLAN or asks the AI PILOT
+  * every dt hours, either follows the pre-made PLAN or asks the guidance policy
     what to do (the switch happens at `takeover_hour`),
   * the thruster delivers  throttle x T0 x (true health)  of push,
   * ends after 460 days.  If the spacecraft ever gets within 577,000 km of
@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from mission import physics as P
-from mission import pilot as AI
+from mission import pilot as policy
 from mission.thruster import T0, MDOT, WET_MASS, DRY_MASS, MISSION_HOURS, health
 
 DT_HOURS = 12
@@ -49,9 +49,9 @@ class Scenario:
     onset_hour: np.ndarray
     severity: np.ndarray
     ramp_hours: np.ndarray
-    believed: np.ndarray = None          # (N, H) believed thrust fraction (from the detector)
+    believed: np.ndarray = None          # (N, H) estimated thrust fraction (from the detector)
     alarm_hour: np.ndarray = None        # (N,) when the onboard detector fired
-    takeover_hour: np.ndarray = None     # (N,) when the AI pilot takes control (0 = from launch)
+    takeover_hour: np.ndarray = None     # (N,) when the policy takes control (0 = from launch)
 
     @property
     def n(self):
@@ -146,8 +146,8 @@ def fly(theta, scen: Scenario, plan=None, noise: NoiseConfig = None, rng=None,
 
         r_nav = r + noise.nav_pos_km * rng.standard_normal((N, 3))
         v_nav = v + noise.nav_vel_km_s * rng.standard_normal((N, 3))
-        obs, (rh, th, nh) = AI.observe(r_nav, v_nav, m, t, h_believed)
-        thr, alpha, beta = AI.act(theta, obs)
+        obs, (rh, th, nh) = policy.observe(r_nav, v_nav, m, t, h_believed)
+        thr, alpha, beta = policy.act(theta, obs)
         direction = P.thrust_direction(alpha, beta, rh, th, nh)
 
         use_pilot = hour >= takeover

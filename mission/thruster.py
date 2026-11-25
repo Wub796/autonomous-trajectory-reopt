@@ -3,23 +3,24 @@ thruster.py: the SPT-140 Hall-effect thruster, how it wears out, and how it can 
 
 Three ideas live here:
 
-1. **Nominal numbers** (same as the original project; Hargus & Fife 2000):
-   thrust T0 = 0.289 N, specific impulse Isp0 = 1782 s.
+1. **Nominal numbers** (SPT-140 operating point; cf. Snyder & Hofer 2014 and
+   Snyder et al. 2018, scaled from 280 mN to 289 mN): thrust T0 = 0.289 N,
+   specific impulse Isp0 = 1782 s.
 
-2. **Slow wear** (aging).  Lab wear tests (Kamhawi et al. 2014) show thrust
-   dropping a little at first and then more and more slowly.  A natural
-   function with that shape is a logarithm:
+2. **Slow wear** (aging).  The wear series used here is generated in code and
+   shows thrust dropping a little at first and then more and more slowly.
+   A natural function with that shape is a logarithm:
 
         T(h) = T0 - k * ln(1 + h / tau)
 
    h = hours of operation, k = how much it wears, tau = how fast wear slows down.
    Its derivative  dT/dh = -k / (tau + h)  is the wear *rate*: it starts at
-   -k/tau and shrinks toward 0 as h grows.  We find k and tau from the lab
-   data with least-squares regression (fit_wear_model below).
+   -k/tau and shrinks toward 0 as h grows.  We find k and tau from that
+   generated series with least-squares regression (fit_wear_model below).
 
-3. **A sudden fault** (the problem our research is about).  At some random
-   hour the thruster loses part of its push (e.g. electrode erosion or a
-   cathode problem).  The propellant still flows at the same rate, so the
+3. **A progressive fault** (the problem our research is about).  At some random
+   hour the thruster begins losing part of its push (e.g. electrode erosion or
+   a cathode problem).  The propellant still flows at the same rate, so the
    thruster becomes less *efficient*: same fuel, less push.  The loss grows
    over a "ramp" of a few days and then stays.
 """
@@ -39,8 +40,12 @@ DRY_MASS = 1648.0             # spacecraft with empty tank [kg]
 MISSION_HOURS = 11040         # 460 days, same as the original project
 
 # ---------------------------------------------------------------------------
-# Lab wear-test data (approximate digitisation of Kamhawi et al. 2014,
-# SPT-140 at 300 V / 4.5 kW).  Same numbers as the original project.
+# Ten-point wear series used by the simulator (generated in code, not copied
+# from a published table).  The 4.5 kW operating point (280 mN, 1782 s) is
+# close to Snyder et al. (2018, AIAA 2018-4421), who report 279.3 mN and
+# 1794 s at 4.5 kW; the shape follows the SPT-140 life test (~8% loss over
+# the first 2,000 h; Snyder et al., 2019), at a deliberately smaller ~1.6%.
+# Fitted parameters are illustrative.
 # ---------------------------------------------------------------------------
 WEAR_HOURS = np.array([0, 100, 200, 300, 500, 700, 900, 1000, 1500, 2000], dtype=float)
 WEAR_THRUST_MN = np.array([280.0, 279.4, 279.1, 278.8, 278.3, 277.9, 277.5, 277.2, 276.3, 275.5])
@@ -49,13 +54,13 @@ WEAR_ISP_S = np.array([1782.0, 1781.0, 1780.3, 1779.6, 1778.3, 1777.0, 1775.8, 1
 
 def linear_regression(x, y):
     """
-    Ordinary least-squares line y = a + b x (the AP Statistics formulas):
+    Ordinary least-squares line y = a + b x:
 
         b = sum((x - x_bar)(y - y_bar)) / sum((x - x_bar)^2)
         a = y_bar - b x_bar
 
     These come from setting the derivative of the total squared error
-    to zero (see paper/math_primer.md, Section 5).
+    to zero.
     """
     xb, yb = x.mean(), y.mean()
     b = np.sum((x - xb) * (y - yb)) / np.sum((x - xb) ** 2)

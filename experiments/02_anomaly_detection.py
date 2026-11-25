@@ -1,10 +1,10 @@
 """
 Experiment 2: Onboard Anomaly Detection Benchmark
-Tests Chandola et al. (2009) [#31], Fu et al. (2022) [#20], and Liu et al. (2008) [#26]:
-  1. Point-Only Threshold (w=1): Looks at single hourly readings in isolation (#31).
+Tests Chandola et al. (2009), Yang et al. (2022), and Liu et al. (2008):
+  1. Point-Only Threshold (w=1): Looks at single hourly readings in isolation.
   2. Physics-Informed Z-Score (w=24): Rolling-window statistical residual filter.
-  3. Collective Isolation Forest (w=24): Rolling-window feature extraction (#20) +
-     unsupervised random binary decision trees (#26).
+  3. Collective Isolation Forest (w=24): Rolling-window feature extraction (Yang et al., 2022) +
+     unsupervised random binary decision trees (Liu et al., 2008).
 Evaluates True/False Positives, Precision, Recall, F1, and Detection Latency.
 """
 import os
@@ -42,10 +42,11 @@ def evaluate_detector(name, deg_alarm, nom_alarm, onset_hr):
 
 
 def run():
-    print("=== Experiment 2: Anomaly Detection Benchmark (#20, #26, #31) ===")
+    print("=== Experiment 2: Anomaly Detection Benchmark ===")
     rng = np.random.default_rng(42)
 
-    # 1. Synthesize 50 nominal runs and 50 degraded runs (#15 Ballentine et al., 2026)
+    # 1. Synthesize 50 nominal and 50 degraded runs with our wear model;
+    #    Ballentine et al. (2026) motivate synthetic data for data scarcity.
     N = 50
     onset_hr = rng.uniform(40 * 24, 150 * 24, N)
     sev = rng.uniform(0.10, 0.25, N)
@@ -54,7 +55,7 @@ def run():
     tel_deg = T.make_telemetry(rng, onset_hr, sev, ramp_hr, hours=T.MISSION_HOURS)
     tel_nom = T.make_telemetry(rng, np.inf, 0.0, 0.0, hours=T.MISSION_HOURS)
 
-    # 2. Benchmark Point-Only Isolation Forest (w=1, no window features - #31 Chandola et al.)
+    # 2. Benchmark Point-Only Isolation Forest (w=1, no window features; Chandola et al., 2009)
     pt_det = D.PointIsolationForestDetector(contamination=0.01, baseline_hours=240, persist=3, seed=42)
     deg_alarm_pt, _, _ = pt_det.run(tel_deg)
     nom_alarm_pt, _, _ = pt_det.run(tel_nom)
@@ -64,7 +65,7 @@ def run():
     deg_alarm_z, _, _ = z_det.run(tel_deg["thrust_mN"])
     nom_alarm_z, _, _ = z_det.run(tel_nom["thrust_mN"])
 
-    # 4. Benchmark Collective-Window Isolation Forest (w=24 - #20 Fu et al., #26 Liu et al.)
+    # 4. Benchmark Collective-Window Isolation Forest (w=24; Yang et al., 2022, Liu et al., 2008)
     if_det = D.IsolationForestDetector(window=24, contamination=0.005, baseline_hours=240, persist=4, seed=42)
     deg_alarm_if, _, _ = if_det.run(tel_deg)
     nom_alarm_if, _, _ = if_det.run(tel_nom)
@@ -99,7 +100,7 @@ def run():
         ax1.axvline(single_alarm_z[0], color="purple", linestyle="-.", linewidth=1.5,
                     label=f"Z-Score Alarm (h={single_alarm_z[0]:.0f})")
     ax1.set_ylabel("Thrust (mN)")
-    ax1.set_title("Collective Anomaly Detection on Gradual Thruster Decay (#20, #26, #31)")
+    ax1.set_title("Collective Anomaly Detection on Gradual Thruster Decay")
     ax1.legend(loc="lower left", fontsize=8.5)
     ax1.grid(True, linestyle=":", alpha=0.6)
 

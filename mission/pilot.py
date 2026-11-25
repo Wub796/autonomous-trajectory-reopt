@@ -1,5 +1,5 @@
 """
-pilot.py: the AI pilot, a tiny neural network written in plain numpy.
+pilot.py: the guidance policy, a small neural network written in plain numpy.
 
 A neural network is a function built from simple pieces:
 
@@ -22,7 +22,7 @@ What the pilot "sees" (11 inputs, all scaled to be roughly between -1 and 1):
     7    my outward speed / 5 km/s
     8    fuel left  (fraction of a full tank)
     9    time left  (fraction of the mission)
-    10   how healthy I *believe* my thruster is, (fraction - 1) * 5
+    10   how healthy I estimate my thruster is, (fraction - 1) * 5
 """
 import numpy as np
 

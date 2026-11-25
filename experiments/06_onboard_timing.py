@@ -1,7 +1,7 @@
 """
-Experiment 6: Onboard Flight Computer Execution Timing
-Benchmarks single-step decision latency and memory footprint of the neural pilot.
-Demonstrates feasibility for low-power, radiation-tolerant spacecraft processors.
+Experiment 6: Host-CPU Policy Inference Timing
+Benchmarks single-step decision latency and memory footprint of the neural pilot
+on the development host. This does not establish flight-processor feasibility.
 """
 import os
 import sys
@@ -12,22 +12,22 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from mission import pilot as AI
+from mission import pilot as policy
 
 os.makedirs("artifacts/figures", exist_ok=True)
 
 def run():
-    print("=== Experiment 6: Onboard Execution Profiling & Real-Time Margin ===")
+    print("=== Experiment 6: Host-CPU Policy Inference & Cycle Margin ===")
 
     if not os.path.exists("artifacts/trained_pilot.npy"):
         raise FileNotFoundError("Run experiments/03_train_pilot.py first!")
 
     theta = np.load("artifacts/trained_pilot.npy")
-    obs_sample = np.ones(AI.N_IN)
+    obs_sample = np.ones(policy.N_IN)
 
     # 1. Warm-up
     for _ in range(100):
-        _ = AI.act_single(theta, obs_sample)
+        _ = policy.act_single(theta, obs_sample)
 
     # 2. Benchmark N=10,000 single-step guidance calls
     N_TRIALS = 10_000
@@ -35,7 +35,7 @@ def run():
 
     for i in range(N_TRIALS):
         t0 = time.perf_counter()
-        _ = AI.act_single(theta, obs_sample)
+        _ = policy.act_single(theta, obs_sample)
         t1 = time.perf_counter()
         latencies_us[i] = (t1 - t0) * 1e6
 
@@ -58,7 +58,7 @@ def run():
     print(f"99th Percentile Latency: {p99_us:.2f} μs")
     print(f"Max Latency:             {max_us:.2f} μs")
     print(f"Available Step Budget:   {CYCLE_BUDGET_SEC:,.0f} seconds")
-    print(f"Real-Time Flight Margin: {margin_pct:.6f}%")
+    print(f"Host-CPU Margin vs 12-h Cycle: {margin_pct:.6f}%")
 
     df_timing = pd.DataFrame([{
         "Parameter_Count": param_count,
@@ -68,7 +68,7 @@ def run():
         "P99_Latency_us": p99_us,
         "Max_Latency_us": max_us,
         "Step_Budget_sec": CYCLE_BUDGET_SEC,
-        "Real_Time_Margin_Pct": margin_pct
+        "Host_CPU_Cycle_Margin_Pct": margin_pct
     }])
     df_timing.to_csv("artifacts/onboard_timing_results.csv", index=False)
 
@@ -79,7 +79,7 @@ def run():
     plt.axvline(p99_us, color="red", linestyle=":", linewidth=2, label=f"99th Percentile ({p99_us:.2f} μs)")
     plt.xlabel("Guidance Inference Latency (microseconds)")
     plt.ylabel("Execution Count (out of 10,000)")
-    plt.title("Onboard Neural Guidance Latency Distribution")
+    plt.title("Host-CPU Neural Guidance Latency Distribution")
     plt.grid(True, linestyle=":", alpha=0.6)
     plt.legend()
 

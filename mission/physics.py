@@ -1,25 +1,21 @@
 """
 physics.py: the "world" the spacecraft lives in.
 
-Everything here is high-school physics + Calc AB:
-
 * Newton's law of gravity (inverse-square law) in 3D
-* F = m a  for the thruster push
-* Velocity is the derivative of position, acceleration is the derivative of
-  velocity.  We step forward in time with the tangent-line (linear)
-  approximation:
+* F = m a for the thruster push
+* Velocity is the derivative of position and acceleration the derivative of
+  velocity, so the state is stepped forward with
 
         v(t + dt) ~ v(t) + a(t) * dt          (because dv/dt = a)
         r(t + dt) ~ r(t) + v(t + dt) * dt     (because dr/dt = v)
 
-  Using the *new* velocity to move the position is called "semi-implicit
-  Euler".  It keeps orbits from slowly spiraling outward the way the plain
-  version does (see paper/math_primer.md, Section 2).
+  Moving with the *new* velocity is semi-implicit Euler; it avoids the slow
+  outward drift of the plain explicit version.
 
 * The propellant use rate dm/dt = -T / (Isp * g0).
 
-All arrays are "batched": shape (N, 3) for N spacecraft flying at the same
-time.  That lets us simulate a whole population of AI pilots at once.
+All arrays are batched: shape (N, 3) for N spacecraft flying at the same
+time, so a whole population of trajectories is simulated at once.
 
 Units: kilometers, seconds, kilograms, Newtons.
 """

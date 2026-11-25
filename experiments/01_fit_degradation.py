@@ -1,9 +1,13 @@
 """
 Experiment 1: Thruster Degradation Model Fitting
-Fits the logarithmic wear model T(h) = P0 - k * ln(1 + h / tau) to SPT-140 lab data.
-Uses least squares (Calc AB optimization) and generates publication plots.
+Fits the logarithmic wear model T(h) = P0 - k * ln(1 + h / tau) to the
+simulator's ten-point wear series (operating point close to published SPT-140 data).
+Uses least squares and generates publication plots.
 """
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -42,8 +46,8 @@ def run():
     # Plot
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
-    # Left: Empirical data + fitted curve
-    ax1.scatter(hours, thrust, color="crimson", zorder=5, label="Kamhawi et al. (2014) Data")
+    # Left: wear series + fitted curve
+    ax1.scatter(hours, thrust, color="crimson", zorder=5, label="Ten-point wear series (simulated)")
     ax1.plot(sim_hours[:100], pred_thrust[:100], "b--", label=f"Fit (R² = {fit_thrust['r2']:.4f})")
     ax1.plot(sim_hours, pred_thrust, "b-", alpha=0.7, label="Mission Extrapolation (460 d)")
     ax1.set_xlabel("Operating Time (hours)")

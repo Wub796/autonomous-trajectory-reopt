@@ -69,8 +69,8 @@ def run():
     mean_miss = np.mean(miss_km)
     median_miss = np.median(miss_km)
     std_miss = np.std(miss_km)
-    p68_miss = np.percentile(miss_km, 68.3)
-    p99_miss = np.percentile(miss_km, 99.7)
+    p683_miss = np.percentile(miss_km, 68.3)
+    p997_miss = np.percentile(miss_km, 99.7)
     mean_fuel = np.mean(fuel_kg)
     std_fuel = np.std(fuel_kg)
     cap_rate = np.mean(captured) * 100.0
@@ -79,8 +79,8 @@ def run():
     print(f"Mars Capture Rate:       {cap_rate:.1f}%")
     print(f"Median Miss Distance:    {median_miss:,.0f} km")
     print(f"Mean Miss Distance:      {mean_miss:,.0f} ± {std_miss:,.0f} km")
-    print(f"1-Sigma Dispersion (68%): {p68_miss:,.0f} km")
-    print(f"3-Sigma Dispersion (99%): {p99_miss:,.0f} km")
+    print(f"68.3rd-Percentile Bound (1 sigma): {p683_miss:,.0f} km")
+    print(f"99.7th-Percentile Bound (3 sigma): {p997_miss:,.0f} km")
     print(f"Propellant Consumed:     {mean_fuel:.1f} ± {std_fuel:.1f} kg")
 
     # Save summary table
@@ -90,8 +90,8 @@ def run():
         "Median_Miss_km": median_miss,
         "Mean_Miss_km": mean_miss,
         "Std_Miss_km": std_miss,
-        "Bound_1Sigma_km": p68_miss,
-        "Bound_3Sigma_km": p99_miss,
+        "Bound_68_3_km": p683_miss,
+        "Bound_99_7_km": p997_miss,
         "Mean_Fuel_kg": mean_fuel,
         "Std_Fuel_kg": std_fuel
     }])

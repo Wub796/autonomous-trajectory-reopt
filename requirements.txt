@@ -1,0 +1,8 @@
+# Pinned so training runs are reproducible (ES trajectories diverge under
+# even small numeric-library changes). Generated 2026-11-25.
+# Python 3.11.15
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.9.0
+pandas==3.0.5
+matplotlib==3.11.1

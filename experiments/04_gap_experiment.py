@@ -1,17 +1,17 @@
 """
-Experiment 4: The Core Research Gap & Factorial Experiment (#28 Creswell, #29 Leedy & Ormrod)
-Evaluates Autonomous Onboard Re-optimization when progressive thruster degradation occurs.
+Experiment 4: The Core Research Gap and Factorial Experiment
+Evaluates autonomous onboard adaptation when progressive thruster degradation occurs.
 
-Part A — Controlled Comparison Across 100 Dispersed Fault Scenarios (#28 Creswell, 2012):
+Part A — Controlled Comparison Across 100 Dispersed Fault Scenarios:
   1. Pre-Planned Baseline (No adaptation)
   2. Ground-in-the-Loop (7-day delay due to DSN scheduling + ground re-planning)
   3. Autonomous Onboard: Physics-Informed Z-Score + Neural Pilot
-  4. Autonomous Onboard: Collective Isolation Forest (#20, #26, #31) + Neural Pilot
+  4. Autonomous Onboard: Collective Isolation Forest + guidance policy
 
-Part B — Two-Way Factorial Design (#29 Leedy & Ormrod, 2015):
+Part B — Two-Way Factorial Design:
   Tests the interaction between Controller Setup (Factor A) and Thruster Degradation
   Severity Level (Factor B: 10%, 15%, 20%, 25% thrust loss) while holding starting
-  orbital conditions and onset times fixed across groups (#28).
+  orbital conditions and onset times fixed across groups.
 """
 import os
 import sys
@@ -30,7 +30,7 @@ os.makedirs("artifacts/figures", exist_ok=True)
 
 
 def run():
-    print("=== Experiment 4: Research Gap & Factorial Evaluation (#28, #29) ===")
+    print("=== Experiment 4: Research Gap & Factorial Evaluation ===")
 
     if not os.path.exists("artifacts/trained_pilot.npy") or not os.path.exists("artifacts/nominal_plan.npz"):
         raise FileNotFoundError("Run experiments/03_train_pilot.py first!")
@@ -43,7 +43,7 @@ def run():
     N = 100
 
     # -------------------------------------------------------------------------
-    # Part A: 100 Dispersed Degradation Scenarios (Fixed Controls, #28 Creswell)
+    # Part A: 100 dispersed degradation scenarios (fixed controls)
     # -------------------------------------------------------------------------
     onset_hr = rng.uniform(30 * 24, 120 * 24, N)
     severity = rng.uniform(0.10, 0.25, N)
@@ -56,7 +56,8 @@ def run():
     alarm_z, _, believed_z = z_det.run(tel["thrust_mN"])
     alarm_z_safe = np.where(np.isinf(alarm_z), T.MISSION_HOURS, alarm_z)
 
-    # Onboard Detector 2: Collective Isolation Forest (w=24, #20 Fu et al., #26 Liu et al.)
+    # Onboard Detector 2: Collective Isolation Forest (w=24; feature extraction
+    # after Yang et al., 2022, forest from Liu et al., 2008)
     if_det = D.IsolationForestDetector(window=24, contamination=0.005, baseline_hours=240, persist=4, seed=42)
     alarm_if, _, believed_if = if_det.run(tel)
     alarm_if_safe = np.where(np.isinf(alarm_if), T.MISSION_HOURS, alarm_if)
@@ -112,7 +113,7 @@ def run():
     ]
     df_summary = pd.DataFrame(summary_rows)
     df_summary.to_csv("artifacts/gap_experiment_results.csv", index=False)
-    print("\n=== Part A: Experimental Results across 100 Dispersed Scenarios (#28) ===")
+    print("\n=== Part A: Experimental Results across 100 Dispersed Scenarios ===")
     print(df_summary.to_string(index=False))
 
     df_runs = pd.DataFrame({
@@ -129,7 +130,7 @@ def run():
     df_runs.to_csv("artifacts/gap_experiment_runs.csv", index=False)
 
     # -------------------------------------------------------------------------
-    # Part B: Factorial Experiment (Controller x Degradation Severity, #29)
+    # Part B: Factorial experiment (controller x degradation severity)
     # -------------------------------------------------------------------------
     sev_levels = [0.10, 0.15, 0.20, 0.25]
     n_per_level = 25
@@ -172,7 +173,7 @@ def run():
 
     df_fact = pd.DataFrame(factorial_rows)
     df_fact.to_csv("artifacts/factorial_experiment_results.csv", index=False)
-    print("\n=== Part B: Two-Way Factorial Experiment (Controller x Degradation Level, #29) ===")
+    print("\n=== Part B: Two-Way Factorial Experiment (Controller x Degradation Level) ===")
     print(df_fact.to_string(index=False))
 
     # -------------------------------------------------------------------------
@@ -196,11 +197,11 @@ def run():
 
     ax1.axhline(P.CAPTURE_RADIUS_KM / 1e6, color="red", linestyle="--", label="Mars Capture Bound (0.577M km)")
     ax1.set_ylabel("Final Miss Distance (Million km)")
-    ax1.set_title("A. Controlled Comparison Across 100 Scenarios (#28)")
+    ax1.set_title("A. Controlled Comparison Across 100 Scenarios")
     ax1.grid(True, linestyle=":", alpha=0.6)
     ax1.legend(loc="upper right")
 
-    # Factorial Interaction Plot (#29 Leedy & Ormrod)
+    # Factorial interaction plot
     styles = {
         "Pre-Planned": ("#e74c3c", "o-", "Pre-Planned (No Adaptation)"),
         "Ground-Delayed (7d)": ("#f39c12", "s--", "Ground-in-the-Loop (7d Delay)"),
@@ -215,7 +216,7 @@ def run():
     ax2.set_xlabel("Thruster Degradation Severity (%)")
     ax2.set_ylabel("Mean Miss Distance (Million km)")
     ax2.set_xticks([10, 15, 20, 25])
-    ax2.set_title("B. Factorial Interaction: Controller × Degradation (#29)")
+    ax2.set_title("B. Factorial Interaction: Controller × Degradation")
     ax2.grid(True, linestyle=":", alpha=0.6)
     ax2.legend(loc="upper left", fontsize=8.5)
 

@@ -1,39 +1,39 @@
 """
 detector.py: the onboard "is my thruster OK?" monitor.
 
-Why single sensor readings are not enough (Chandola et al., 2009 [#31]):
+Why single sensor readings are not enough (Chandola et al., 2009):
   Slow thruster wear is a *collective anomaly*. Any single hourly reading
   is buried in sensor noise and thermal fluctuations, whereas a sequence of
   readings over a 24-hour window reveals the collective downward drift.
 
-We implement and compare three detectors at the AP Stats / intro ML level:
+Three detectors are implemented and compared:
 
-1. **PointIsolationForestDetector (w = 1 baseline)**:
+1. PointIsolationForestDetector (w = 1 baseline):
    Feeds raw single-hour readings [thrust, Isp, solar_temp] into an Isolation
    Forest without time-window feature extraction. Demonstrates Chandola et al.
-   (#31): without collective windowing, slow wear is frequently missed.
+   (Chandola et al., 2009): without collective windowing, slow wear is frequently missed.
 
-2. **ZScoreDetector (w = 24, AP Statistics rolling-window detector)**:
+2. ZScoreDetector (w = 24, rolling-window z-score):
    - Predicts expected thrust from the wear curve: expected(h) = T0 * wear_fraction(h)
    - Computes residual: e(h) = measured(h) / expected(h) - 1
-   - Averages the last w = 24 hours. By AP Stats, averaging w independent readings
-     shrinks the noise standard deviation by sqrt(w) (Standard Error of the Mean).
+   - Averages the last w = 24 hours; averaging independent readings shrinks the
+     noise standard deviation by sqrt(w) (standard error of the mean).
    - Computes z = rolling_mean / (sigma / sqrt(w)).
    - Flags an alarm when z < -threshold for `persist` hours in a row.
 
-3. **CollectiveIsolationForestDetector (w = 24, Fu et al., 2022 [#20]; Liu et al., 2008 [#26])**:
-   Combines rolling-window feature extraction (#20, #31) with an unsupervised
-   Isolation Forest of random binary decision trees (#26):
+3. CollectiveIsolationForestDetector (w = 24; feature extraction after
+   Yang et al., 2022, forest from Liu et al., 2008):
+   Combines rolling-window feature extraction (Yang et al., 2022; Chandola et al., 2009) with an unsupervised
+   Isolation Forest of random binary decision trees (Liu et al., 2008):
    - Feature 1: 24-hour rolling mean of wear-corrected thrust residual
    - Feature 2: 24-hour rolling mean of wear-corrected Isp residual
-   - Feature 3: 24-hour secant slope (average rate of change de/dt over window w,
-                from AP Calculus AB)
+   - Feature 3: 24-hour secant slope (average rate of change de/dt over the window)
    - Feature 4: Solar-array temperature (included to verify that normal thermal
-                fluctuations do not trick the detector into false alarms, #20)
-   Trained only on the first 240 healthy hours of flight (no labeled failures needed, #1, #20).
+                fluctuations do not trick the detector into false alarms)
+   Trained only on the first 240 healthy hours of flight (no labeled failures needed).
 
 After an alarm fires, the detector estimates remaining thruster health from the
-24-hour rolling mean of measured / T0 and passes that belief to the AI pilot.
+24-hour rolling mean of measured / T0 and passes that health estimate to the guidance policy.
 """
 import numpy as np
 from sklearn.ensemble import IsolationForest
@@ -54,7 +54,7 @@ def rolling_slope(x, w):
     """
     Causal secant slope (average rate of change over the last w hours):
         slope(t) = [ x(t) - x(t - w) ] / w
-    In AP Calculus AB, this is the difference quotient over interval w.
+    This is the difference quotient over the window.
     """
     out = np.zeros_like(x, dtype=float)
     out[..., w:] = (x[..., w:] - x[..., :-w]) / float(w)
@@ -122,7 +122,7 @@ class ZScoreDetector:
         Returns
           alarm_hour : first alarm per scenario (np.inf if none), shape (S,)
           alarms     : raw per-hour alarm flags (z < -threshold), shape (S, H)
-          est_frac   : what the spacecraft *believes* its thrust fraction is,
+          est_frac   : the spacecraft's estimate of its thrust fraction,
                        shape (S, H). Before the alarm: wear model. After: measured.
         """
         thrust_mN = np.atleast_2d(thrust_mN)
@@ -136,7 +136,7 @@ class ZScoreDetector:
 class PointIsolationForestDetector:
     """
     Point-only Isolation Forest (w = 1): feeds raw single-hour sensor readings
-    without rolling-window feature extraction (#31 Chandola et al., 2009).
+    without rolling-window feature extraction (Chandola et al., 2009).
     """
 
     def __init__(self, contamination=0.01, baseline_hours=240, persist=3, seed=0):
@@ -164,8 +164,8 @@ class PointIsolationForestDetector:
 
 class IsolationForestDetector:
     """
-    Collective-anomaly Isolation Forest (Fu et al., 2022 [#20]; Liu et al., 2008 [#26];
-    Chandola et al., 2009 [#31]).
+    Collective-anomaly Isolation Forest (feature extraction motivated by Yang et al.,
+    2022; forest from Liu et al., 2008; Chandola et al., 2009).
 
     Extracts rolling time-series features over `window` hours so random trees can
     isolate gradual thruster decay without being fooled by single-hour noise or
@@ -190,7 +190,7 @@ class IsolationForestDetector:
         e_thrust = tel["thrust_mN"][s] / (T0 * 1000.0 * w_frac) - 1.0
         e_isp = tel["isp_s"][s] / (ISP0 * w_frac) - 1.0
 
-        # Collective window features (#20 Fu et al., #31 Chandola et al.)
+        # Collective window features (Yang et al., 2022; Chandola et al., 2009)
         roll_thrust = rolling_mean(e_thrust, self.window)
         roll_isp = rolling_mean(e_isp, self.window)
         slope_thrust = rolling_slope(roll_thrust, self.window) * 100.0
@@ -203,7 +203,7 @@ class IsolationForestDetector:
         Returns
           alarm_hour : first alarm per scenario (np.inf if none), shape (S,)
           alarms     : per-hour anomaly flags, shape (S, H)
-          believed   : believed thrust fraction (S, H) for the AI pilot
+          believed   : estimated thrust fraction (S, H) for the guidance policy
         """
         S, H = tel["thrust_mN"].shape
         alarms = np.zeros((S, H), dtype=bool)
